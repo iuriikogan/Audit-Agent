@@ -1,0 +1,6 @@
+.terraform
+.vscode
+.env
+.tessl
+tessl.json
+*.tfvars
