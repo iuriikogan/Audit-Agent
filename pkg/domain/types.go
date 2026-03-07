@@ -1,18 +1,30 @@
 package domain
 
-// Product represents the item being assessed.
-type Product struct {
+// Resource represents a GCP resource to be assessed.
+type Resource struct {
 	ID        string
 	Name      string
-	Component string // For demo purposes, assumes single main component
-	Version   string
+	Type      string // e.g., "compute.googleapis.com/Instance"
+	ProjectID string
+	Region    string
 }
 
-// AssessmentResult holds the outcome of the multi-agent analysis.
+// AssessmentResult holds the outcome of the multi-agent workflow.
 type AssessmentResult struct {
-	ProductID      string
-	Classification string
-	AuditStatus    string // "Verified" or "Rejected"
-	VulnReport     string
-	Error          error
+	ResourceID     string
+	ResourceName   string
+	ResourceType   string
+	ProjectID      string
+	
+	Classification string // Kept for backward compatibility (Scope)
+	AuditStatus    string // Kept for backward compatibility (Audit)
+	VulnReport     string // Kept for backward compatibility (Vuln)
+
+	// New Pipeline Fields
+	ComplianceModel  string
+	ComplianceReport string
+	ApprovalStatus   string
+	Tags             string
+
+	Error error
 }
