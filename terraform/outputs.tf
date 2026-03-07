@@ -10,7 +10,7 @@ output "cluster_name" {
 
 output "gateway_status" {
   description = "Gateway Manifest Status (Check for IP allocation)"
-  value       = kubernetes_manifest.gateway.object.status
+  value       = try(yamldecode(kubectl_manifest.gateway.yaml_incluster).status, "Pending")
 }
 
 output "bastion_command" {

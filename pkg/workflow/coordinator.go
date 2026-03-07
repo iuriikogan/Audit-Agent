@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -15,22 +16,18 @@ import (
 // between specialized agents using Go channels and goroutines.
 
 type Coordinator struct {
-
 	aggregator agent.Agent
 
-	modeler    agent.Agent
+	modeler agent.Agent
 
-	validator  agent.Agent
+	validator agent.Agent
 
-	reviewer   agent.Agent
+	reviewer agent.Agent
 
-	tagger     agent.Agent
+	tagger agent.Agent
 
 	concurrency int
-
 }
-
-
 
 // NewCoordinator initializes the workflow manager with specific agents.
 
@@ -44,48 +41,34 @@ func NewCoordinator(aggregator, modeler, validator, reviewer, tagger agent.Agent
 
 	return &Coordinator{
 
-		aggregator:  aggregator,
+		aggregator: aggregator,
 
-		modeler:     modeler,
+		modeler: modeler,
 
-		validator:   validator,
+		validator: validator,
 
-		reviewer:    reviewer,
+		reviewer: reviewer,
 
-		tagger:      tagger,
+		tagger: tagger,
 
 		concurrency: workers,
-
 	}
 
 }
 
-
-
-
-
 // ProcessStream takes a stream of products and returns a stream of results.
-
 // It manages a worker pool to process items concurrently.
-
-func (c *Coordinator) ProcessStream(ctx context.Context, input <-chan domain.Product) <-chan domain.AssessmentResult {
+func (c *Coordinator) ProcessStream(ctx context.Context, input <-chan domain.Resource) <-chan domain.AssessmentResult {
 
 	results := make(chan domain.AssessmentResult)
-
-
 
 	go func() {
 
 		defer close(results)
 
-		
-
 		var wg sync.WaitGroup
 
-		
-
 		// Launch worker pool
-
 		for i := 0; i < c.concurrency; i++ {
 
 			wg.Add(1)
@@ -100,28 +83,22 @@ func (c *Coordinator) ProcessStream(ctx context.Context, input <-chan domain.Pro
 
 		}
 
-		
-
 		wg.Wait()
 
 	}()
-
-
 
 	return results
 
 }
 
-
-
 // workerLoop consumes products and runs the agent pipeline for each.
+func (c *Coordinator) workerLoop(ctx context.Context, id int, input <-chan domain.Resource, output chan<- domain.AssessmentResult) {
+	slog.Debug("Worker started", "worker_id", id)
+	defer slog.Debug("Worker stopped", "worker_id", id)
 
-func (c *Coordinator) workerLoop(ctx context.Context, id int, input <-chan domain.Product, output chan<- domain.AssessmentResult) {
-
-	for p := range input {
+	for r := range input {
 
 		// Respect context cancellation
-
 		select {
 
 		case <-ctx.Done():
@@ -132,9 +109,7 @@ func (c *Coordinator) workerLoop(ctx context.Context, id int, input <-chan domai
 
 		}
 
-
-
-		res := c.analyzeProduct(ctx, p)
+		res := c.analyzeResource(ctx, r)
 
 		output <- res
 
@@ -142,125 +117,107 @@ func (c *Coordinator) workerLoop(ctx context.Context, id int, input <-chan domai
 
 }
 
-
-
-// analyzeProduct executes the sequential logic for a single item:
-
+// analyzeResource executes the sequential logic for a single item:
 // Aggregator -> Modeler -> Validator -> Reviewer -> Tagger
+func (c *Coordinator) analyzeResource(ctx context.Context, r domain.Resource) domain.AssessmentResult {
+	slog.Info("Analyzing resource", "resource", r.Name, "type", r.Type)
 
-func (c *Coordinator) analyzeProduct(ctx context.Context, p domain.Product) domain.AssessmentResult {
+	res := domain.AssessmentResult{
+		ResourceID:   r.ID,
+		ResourceName: r.Name,
+		ResourceType: r.Type,
+		ProjectID:    r.ProjectID,
+	}
 
-	res := domain.AssessmentResult{ProductID: p.ID}
-
-
-
-	// 1. Resource Aggregator
-
+	// 1. Resource Aggregator: Collects configuration details.
 	stepCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 
 	defer cancel()
 
-
-
-	dataRepo, err := c.aggregator.Chat(stepCtx, fmt.Sprintf("Ingest resources for product: %s (Component: %s, Version: %s)", p.Name, p.Component, p.Version))
+	slog.Debug("Step 1: Resource Aggregator", "resource", r.Name)
+	prompt := fmt.Sprintf("Ingest configuration and IAM policies for GCP resource: %s (Type: %s, Project: %s, Region: %s)", r.Name, r.Type, r.ProjectID, r.Region)
+	dataRepo, err := c.aggregator.Chat(stepCtx, prompt)
 
 	if err != nil {
-
+		slog.Error("Aggregation failed", "resource", r.Name, "error", err)
 		res.Error = fmt.Errorf("aggregation failed: %w", err)
 
 		return res
 
 	}
 
-
-
-	// 2. CRA Modeler
-
+	// 2. CRA Modeler: Applies compliance framework to the data.
 	stepCtx, cancel = context.WithTimeout(ctx, 2*time.Minute)
 
 	defer cancel()
 
-
-
-	complianceModel, err := c.modeler.Chat(stepCtx, fmt.Sprintf("Model CRA compliance for data: %s", dataRepo))
+	slog.Debug("Step 2: CRA Modeler", "resource", r.Name)
+	complianceModel, err := c.modeler.Chat(stepCtx, fmt.Sprintf("Model CRA compliance for GCP resource configuration: %s", dataRepo))
 
 	if err != nil {
-
+		slog.Error("Modeling failed", "resource", r.Name, "error", err)
 		res.Error = fmt.Errorf("modeling failed: %w", err)
 
 		return res
 
 	}
+	res.ComplianceModel = complianceModel
 
-
-
-	// 3. Compliance Validator
-
+	// 3. Compliance Validator: Checks against specific regulations.
 	stepCtx, cancel = context.WithTimeout(ctx, 2*time.Minute)
 
 	defer cancel()
 
-
-
-	complianceReport, err := c.validator.Chat(stepCtx, fmt.Sprintf("Validate model against CRA rules: %s", complianceModel))
+	slog.Debug("Step 3: Compliance Validator", "resource", r.Name)
+	complianceReport, err := c.validator.Chat(stepCtx, fmt.Sprintf("Validate GCP resource compliance against CRA rules: %s", complianceModel))
 
 	if err != nil {
-
+		slog.Error("Validation failed", "resource", r.Name, "error", err)
 		res.Error = fmt.Errorf("validation failed: %w", err)
 
 		return res
 
 	}
 
-	res.VulnReport = complianceReport // Mapping report to existing field for now
+	res.ComplianceReport = complianceReport
 
-
-
-	// 4. Reviewer
-
+	// 4. Reviewer: Provides final verdict and summary.
 	stepCtx, cancel = context.WithTimeout(ctx, 2*time.Minute)
 
 	defer cancel()
 
-
-
-	approval, err := c.reviewer.Chat(stepCtx, fmt.Sprintf("Review compliance report: %s", complianceReport))
+	slog.Debug("Step 4: Reviewer", "resource", r.Name)
+	approval, err := c.reviewer.Chat(stepCtx, fmt.Sprintf("Review compliance report for GCP resource: %s", complianceReport))
 
 	if err != nil {
-
+		slog.Error("Review failed", "resource", r.Name, "error", err)
 		res.Error = fmt.Errorf("review failed: %w", err)
 
 		return res
 
 	}
 
-	res.AuditStatus = approval
+	res.ApprovalStatus = approval
 
-
-
-	// 5. Resource Tagger (only if issues found or requested)
-
+	// 5. Resource Tagger: Suggests remediation tags.
 	stepCtx, cancel = context.WithTimeout(ctx, 2*time.Minute)
 
 	defer cancel()
 
-	
-
-	tags, err := c.tagger.Chat(stepCtx, fmt.Sprintf("Tag resources based on report: %s", complianceReport))
+	slog.Debug("Step 5: Resource Tagger", "resource", r.Name)
+	tags, err := c.tagger.Chat(stepCtx, fmt.Sprintf("Generate GCP labels/tags for resource based on report: %s", complianceReport))
 
 	if err != nil {
+		slog.Error("Tagging failed", "resource", r.Name, "error", err)
+		// Treat tagging failure as an error for strict compliance
 
-		// Non-blocking error, log but continue
+		res.Error = fmt.Errorf("tagging failed: %w", err)
 
-		fmt.Printf("Tagging warning for %s: %v\n", p.ID, err)
-
-	} else {
-
-		res.Classification = tags // Storing tags in classification field for now
+		return res
 
 	}
 
-
+	res.Tags = tags
 
 	return res
 
