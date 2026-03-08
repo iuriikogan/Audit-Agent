@@ -36,7 +36,6 @@ The system is designed as an event-driven, microservices-based application runni
     *   `final-reports`: Aggregated reports.
 
 ### 4. Data Storage
-*   **Firestore (Optional/Planned):** Stores persistent state of scans, audit logs, and historical compliance data.
 *   **Cloud Storage:** Stores generated reports (PDF/CSV) and dashboard images.
 
 ### 5. AI Engine
