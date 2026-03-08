@@ -1,29 +1,30 @@
 # Enable Secret Manager and KMS APIs
 resource "google_project_service" "secretmanager" {
-  project = var.project_id
-  service = "secretmanager.googleapis.com"
+  project            = var.project_id
+  service            = "secretmanager.googleapis.com"
   disable_on_destroy = false
 }
 
 resource "google_project_service" "cloudkms" {
-  project = var.project_id
-  service = "cloudkms.googleapis.com"
+  project            = var.project_id
+  service            = "cloudkms.googleapis.com"
   disable_on_destroy = false
 }
 
 # KMS Key Ring
 resource "google_kms_key_ring" "key_ring" {
-  name     = "${var.cluster_name}-key-ring"
-  location = var.region
-  project  = var.project_id
+  name       = "${var.cluster_name}-key-ring"
+  location   = var.region
+  project    = var.project_id
   depends_on = [google_project_service.cloudkms]
 }
 
 # KMS Crypto Key
 resource "google_kms_crypto_key" "secret_key" {
-  name     = "gemini-api-key-encryption"
-  key_ring = google_kms_key_ring.key_ring.id
-  purpose  = "ENCRYPT_DECRYPT"
+  name            = "gemini-api-key-encryption"
+  key_ring        = google_kms_key_ring.key_ring.id
+  purpose         = "ENCRYPT_DECRYPT"
+  rotation_period = "7776000s" # 90 days
 }
 
 # Grant Secret Manager Service Agent access to the KMS key

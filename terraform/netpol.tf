@@ -44,7 +44,7 @@ resource "kubernetes_network_policy" "allow_https_egress" {
       }
       to {
         ip_block {
-          cidr = "0.0.0.0/0"
+          cidr   = "0.0.0.0/0"
           except = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"] # Block private ranges, allow public internet (GCP APIs)
         }
       }

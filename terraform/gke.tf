@@ -22,16 +22,16 @@ resource "google_container_cluster" "primary" {
   secret_manager_config {
     enabled = true
   }
-  
+
   resource_labels = {
-    env = "production"
+    env  = "production"
     team = "agent-cra"
   }
 
   private_cluster_config {
     enable_private_nodes    = true
     enable_private_endpoint = true
-    master_ipv4_cidr_block  = "172.16.0.0/28"
+    master_ipv4_cidr_block  = var.master_ipv4_cidr_block
   }
 
   master_authorized_networks_config {
