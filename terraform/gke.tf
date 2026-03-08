@@ -22,9 +22,9 @@ resource "google_container_cluster" "primary" {
   secret_manager_config {
     enabled = true
   }
-  
+
   resource_labels = {
-    env = "production"
+    env  = "production"
     team = "agent-cra"
   }
 

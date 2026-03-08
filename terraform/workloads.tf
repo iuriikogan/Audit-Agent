@@ -90,56 +90,56 @@ resource "kubernetes_deployment_v1" "agent_classifier" {
         volume {
           name = "secrets-store-inline"
           csi {
-            driver = "secrets-store.csi.k8s.io"
-            read_only = true
+            driver            = "secrets-store.csi.k8s.io"
+            read_only         = true
             volume_attributes = { secretProviderClass = "gemini-api-key-spc" }
           }
         }
         container {
           image = var.image_repository
-                    name  = "classifier"
-                    # Hypothetical entrypoint command
-                    command = ["/app/main"]
-                    args    = ["--role=classifier", "--mode=server"]
-                    
-                    volume_mount {
-                      name       = "secrets-store-inline"
-                      mount_path = "/mnt/secrets-store"
-                      read_only  = true
-                    }
-                    env {
-                      name = "GEMINI_API_KEY"
-                      value_from {
-                        secret_key_ref {
-                          name = "gemini-api-key"
-                          key  = "key"
-                        }
-                      }
-                    }
-                    env {
-                      name  = "PROJECT_ID"
-                      value = var.project_id
-                    }
-                    
-                    port { container_port = 8080 }
-                    
-                    resources {
-                      limits = {
-                        cpu    = "500m"
-                        memory = "512Mi"
-                      }
-                      requests = {
-                        cpu    = "250m"
-                        memory = "256Mi"
-                      }
-                    }
-                    security_context {
-                      run_as_non_root = true
-                      allow_privilege_escalation = false
-                      capabilities {
-                        drop = ["ALL"]
-                      }
-                    }
+          name  = "classifier"
+          # Hypothetical entrypoint command
+          command = ["/app/main"]
+          args    = ["--role=classifier", "--mode=server"]
+
+          volume_mount {
+            name       = "secrets-store-inline"
+            mount_path = "/mnt/secrets-store"
+            read_only  = true
+          }
+          env {
+            name = "GEMINI_API_KEY"
+            value_from {
+              secret_key_ref {
+                name = "gemini-api-key"
+                key  = "key"
+              }
+            }
+          }
+          env {
+            name  = "PROJECT_ID"
+            value = var.project_id
+          }
+
+          port { container_port = 8080 }
+
+          resources {
+            limits = {
+              cpu    = "500m"
+              memory = "512Mi"
+            }
+            requests = {
+              cpu    = "250m"
+              memory = "256Mi"
+            }
+          }
+          security_context {
+            run_as_non_root            = true
+            allow_privilege_escalation = false
+            capabilities {
+              drop = ["ALL"]
+            }
+          }
           liveness_probe {
             http_get {
               path = "/healthz"
@@ -168,49 +168,49 @@ resource "kubernetes_deployment_v1" "agent_auditor" {
         volume {
           name = "secrets-store-inline"
           csi {
-            driver = "secrets-store.csi.k8s.io"
-            read_only = true
+            driver            = "secrets-store.csi.k8s.io"
+            read_only         = true
             volume_attributes = { secretProviderClass = "gemini-api-key-spc" }
           }
         }
         container {
-          image = var.image_repository
-                                        name  = "auditor"
-                                        command = ["/app/main"]
-                                        args    = ["--role=auditor", "--mode=server"]
-                    
-                                        volume_mount {
-                                          name       = "secrets-store-inline"
-                                          mount_path = "/mnt/secrets-store"
-                                          read_only  = true
-                                        }
-                                        env {
-                                          name = "GEMINI_API_KEY"
-                                          value_from {
-                                            secret_key_ref {
-                                              name = "gemini-api-key"
-                                              key  = "key"
-                                            }
-                                          }
-                                        }
-                                        env {
-                                          name  = "PROJECT_ID"
-                                          value = var.project_id
-                                        }
-                              port { container_port = 8080 }
-                    
-                              resources {
-                                limits = {
-                                  cpu    = "500m"
-                                  memory = "512Mi"
-                                }
-                                requests = {
-                                  cpu    = "250m"
-                                  memory = "256Mi"
-                                }
-                              }
+          image   = var.image_repository
+          name    = "auditor"
+          command = ["/app/main"]
+          args    = ["--role=auditor", "--mode=server"]
+
+          volume_mount {
+            name       = "secrets-store-inline"
+            mount_path = "/mnt/secrets-store"
+            read_only  = true
+          }
+          env {
+            name = "GEMINI_API_KEY"
+            value_from {
+              secret_key_ref {
+                name = "gemini-api-key"
+                key  = "key"
+              }
+            }
+          }
+          env {
+            name  = "PROJECT_ID"
+            value = var.project_id
+          }
+          port { container_port = 8080 }
+
+          resources {
+            limits = {
+              cpu    = "500m"
+              memory = "512Mi"
+            }
+            requests = {
+              cpu    = "250m"
+              memory = "256Mi"
+            }
+          }
           security_context {
-            run_as_non_root = true
+            run_as_non_root            = true
             allow_privilege_escalation = false
             capabilities {
               drop = ["ALL"]
@@ -244,15 +244,15 @@ resource "kubernetes_deployment_v1" "agent_vuln" {
         volume {
           name = "secrets-store-inline"
           csi {
-            driver = "secrets-store.csi.k8s.io"
-            read_only = true
+            driver            = "secrets-store.csi.k8s.io"
+            read_only         = true
             volume_attributes = { secretProviderClass = "gemini-api-key-spc" }
           }
         }
         container {
-          image = var.image_repository
-          name  = "vuln"
-          command = ["/app/main"] 
+          image   = var.image_repository
+          name    = "vuln"
+          command = ["/app/main"]
           args    = ["--role=vuln", "--mode=server"]
 
           volume_mount {
@@ -287,7 +287,7 @@ resource "kubernetes_deployment_v1" "agent_vuln" {
             }
           }
           security_context {
-            run_as_non_root = true
+            run_as_non_root            = true
             allow_privilege_escalation = false
             capabilities {
               drop = ["ALL"]
@@ -321,15 +321,15 @@ resource "kubernetes_deployment_v1" "agent_reporter" {
         volume {
           name = "secrets-store-inline"
           csi {
-            driver = "secrets-store.csi.k8s.io"
-            read_only = true
+            driver            = "secrets-store.csi.k8s.io"
+            read_only         = true
             volume_attributes = { secretProviderClass = "gemini-api-key-spc" }
           }
         }
         container {
-          image = var.image_repository
-          name  = "reporter"
-          command = ["/app/main"] 
+          image   = var.image_repository
+          name    = "reporter"
+          command = ["/app/main"]
           args    = ["--role=reporter", "--mode=server"]
 
           volume_mount {
@@ -364,7 +364,7 @@ resource "kubernetes_deployment_v1" "agent_reporter" {
             }
           }
           security_context {
-            run_as_non_root = true
+            run_as_non_root            = true
             allow_privilege_escalation = false
             capabilities {
               drop = ["ALL"]

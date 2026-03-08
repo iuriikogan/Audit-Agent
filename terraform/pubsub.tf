@@ -19,8 +19,8 @@ resource "google_pubsub_topic" "assets_found" {
 }
 
 resource "google_pubsub_subscription" "assets_found_sub" {
-  name  = "assets-found-sub"
-  topic = google_pubsub_topic.assets_found.name
+  name                 = "assets-found-sub"
+  topic                = google_pubsub_topic.assets_found.name
   ack_deadline_seconds = 600
 }
 
@@ -29,8 +29,8 @@ resource "google_pubsub_topic" "models_generated" {
 }
 
 resource "google_pubsub_subscription" "models_generated_sub" {
-  name  = "models-generated-sub"
-  topic = google_pubsub_topic.models_generated.name
+  name                 = "models-generated-sub"
+  topic                = google_pubsub_topic.models_generated.name
   ack_deadline_seconds = 600
 }
 
@@ -39,8 +39,8 @@ resource "google_pubsub_topic" "validation_results" {
 }
 
 resource "google_pubsub_subscription" "validation_results_sub" {
-  name  = "validation-results-sub"
-  topic = google_pubsub_topic.validation_results.name
+  name                 = "validation-results-sub"
+  topic                = google_pubsub_topic.validation_results.name
   ack_deadline_seconds = 600
 }
 
@@ -49,7 +49,7 @@ resource "google_pubsub_topic" "final_reports" {
 }
 
 resource "google_pubsub_subscription" "final_reports_sub" {
-  name  = "final-reports-sub"
-  topic = google_pubsub_topic.final_reports.name
+  name                 = "final-reports-sub"
+  topic                = google_pubsub_topic.final_reports.name
   ack_deadline_seconds = 600
 }
