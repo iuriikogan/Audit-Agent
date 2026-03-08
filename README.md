@@ -14,6 +14,31 @@ A scalable, event-driven multi-agent system designed to assess Google Cloud infr
 *   **AI-Powered:** Leverages Gemini 1.5 Pro for deep reasoning and compliance mapping.
 *   **Infrastructure as Code:** Full Terraform setup included.
 
+## 🏗️ System Architecture
+
+![System Architecture](architecture.png)
+
+The system is composed of the following key components:
+
+1.  **Frontend (Next.js):** A responsive web dashboard for triggering scans, viewing results, and managing compliance reports.
+2.  **Backend API (Go):** A RESTful API server that handles user requests, initiates scans via Pub/Sub, and queries Firestore for data.
+3.  **Worker (Go):** An autonomous worker service that consumes scan requests from Pub/Sub, orchestrates the AI agents, and performs the actual compliance assessments.
+4.  **Pub/Sub:** Acts as the asynchronous message bus, decoupling the API server from the heavy processing in the workers.
+5.  **Firestore:** Stores scan results, compliance reports, and audit logs.
+6.  **Gemini AI:** The reasoning engine used by the agents to analyze infrastructure and determine compliance.
+
+### Agent Workflow
+
+![Agent Workflow](agent_workflow.png)
+
+The compliance process is driven by a chain of specialized agents:
+
+*   **Resource Aggregator:** Discovers and ingests GCP assets.
+*   **CRA Modeler:** Applies the CRA compliance framework to the data.
+*   **Compliance Validator:** Validates the model against regulatory rules.
+*   **Reviewer:** Provides final approval and summary of the report.
+*   **Resource Tagger:** Tags resources with compliance status and remediation steps.
+
 ## 📂 Project Structure
 
 ```
@@ -38,6 +63,7 @@ A scalable, event-driven multi-agent system designed to assess Google Cloud infr
 *   `gcloud` CLI installed and authenticated
 *   `terraform` installed
 *   Gemini API Key
+*   Docker & Docker Compose
 
 # Deployment Instructions
 
