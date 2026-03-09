@@ -15,11 +15,11 @@ import (
 	"github.com/google/generative-ai-go/genai"
 	"google.golang.org/api/option"
 
-	"multi-agent-cra/pkg/agent"
-	"multi-agent-cra/pkg/core"
-	"multi-agent-cra/pkg/logger"
-	"multi-agent-cra/pkg/tools"
-	"multi-agent-cra/pkg/workflow"
+	"github.com/iuriikogan/multi-agent-cra/pkg/agent"
+	"github.com/iuriikogan/multi-agent-cra/pkg/core"
+	"github.com/iuriikogan/multi-agent-cra/pkg/logger"
+	"github.com/iuriikogan/multi-agent-cra/pkg/tools"
+	"github.com/iuriikogan/multi-agent-cra/pkg/workflow"
 )
 
 func main() {

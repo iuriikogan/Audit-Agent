@@ -1,29 +1,39 @@
-# VPC Network
+# vpc.tf - Defines the VPC network and Serverless VPC Access connector
+
 resource "google_compute_network" "vpc" {
-  name                    = "${var.cluster_name}-vpc"
+  name                    = "cra-vpc"
   auto_create_subnetworks = false
 }
 
-# Subnet
-resource "google_compute_subnetwork" "subnet" {
-  name          = "${var.cluster_name}-subnet"
+resource "google_compute_subnetwork" "default" {
+  name          = "cra-subnet"
+  ip_cidr_range = "10.0.0.0/24"
+  network       = google_compute_network.vpc.id
   region        = var.region
-  network       = google_compute_network.vpc.name
-  ip_cidr_range = "10.0.0.0/16"
+}
 
-  secondary_ip_range {
-    range_name    = "pods"
-    ip_cidr_range = "10.1.0.0/16"
-  }
+resource "google_vpc_access_connector" "serverless" {
+  name          = "cra-connector"
+  region        = var.region
+  ip_cidr_range = "10.8.0.0/28"
+  network       = google_compute_network.vpc.id
+  min_instances = 2
+  max_instances = 3
 
-  secondary_ip_range {
-    range_name    = "services"
-    ip_cidr_range = "10.2.0.0/16"
-  }
+  depends_on = [google_project_service.apis]
+}
 
-  log_config {
-    aggregation_interval = "INTERVAL_10_MIN"
-    flow_sampling        = 0.5
-    metadata             = "INCLUDE_ALL_METADATA"
-  }
+# Required for the private Cloud SQL instance
+resource "google_compute_global_address" "private_ip_address" {
+  name          = "private-ip-for-sql"
+  purpose       = "VPC_PEERING"
+  address_type  = "INTERNAL"
+  prefix_length = 16
+  network       = google_compute_network.vpc.id
+}
+
+resource "google_service_networking_connection" "private_vpc_connection" {
+  network                 = google_compute_network.vpc.id
+  service                 = "servicenetworking.googleapis.com"
+  reserved_peering_ranges = [google_compute_global_address.private_ip_address.name]
 }

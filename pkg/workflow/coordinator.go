@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"multi-agent-cra/pkg/agent"
-	"multi-agent-cra/pkg/core"
+	"github.com/iuriikogan/multi-agent-cra/pkg/agent"
+	"github.com/iuriikogan/multi-agent-cra/pkg/core"
 )
 
 // Coordinator acts as the Concurrency Agent, orchestrating the flow of data

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -12,13 +13,13 @@ import (
 	"github.com/google/generative-ai-go/genai"
 	"google.golang.org/api/option"
 
-	"multi-agent-cra/pkg/agent"
-	"multi-agent-cra/pkg/config"
-	"multi-agent-cra/pkg/core"
-	"multi-agent-cra/pkg/logger"
-	"multi-agent-cra/pkg/queue"
-	"multi-agent-cra/pkg/tools"
-	"multi-agent-cra/pkg/workflow"
+	"github.com/iuriikogan/multi-agent-cra/pkg/agent"
+	"github.com/iuriikogan/multi-agent-cra/pkg/config"
+	"github.com/iuriikogan/multi-agent-cra/pkg/core"
+	"github.com/iuriikogan/multi-agent-cra/pkg/logger"
+	"github.com/iuriikogan/multi-agent-cra/pkg/queue"
+	"github.com/iuriikogan/multi-agent-cra/pkg/tools"
+	"github.com/iuriikogan/multi-agent-cra/pkg/workflow"
 )
 
 func main() {
@@ -26,6 +27,31 @@ func main() {
 	logger.Setup(cfg.LogLevel)
 
 	ctx := context.Background()
+
+	// --- Cloud Run Health Check Requirement ---
+	// Start a dummy HTTP server to satisfy Cloud Run's container startup probe.
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	go func() {
+		mux := http.NewServeMux()
+		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			_, _ = fmt.Fprint(w, "Worker is running")
+		})
+		mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			_, _ = fmt.Fprint(w, "OK")
+		})
+		
+		slog.Info("Starting health check server", "port", port)
+		if err := http.ListenAndServe(":"+port, mux); err != nil {
+			slog.Error("Health check server failed", "error", err)
+			os.Exit(1)
+		}
+	}()
+	// ------------------------------------------
 
 	// Initialize Pub/Sub Client
 	pubsubClient, err := queue.NewClient(ctx, cfg.ProjectID)

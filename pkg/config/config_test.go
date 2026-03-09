@@ -7,19 +7,19 @@ import (
 
 func TestLoad(t *testing.T) {
 	// Set environment variables for testing
-	os.Setenv("PROJECT_ID", "test-project")
-	os.Setenv("REGION", "us-west1")
-	os.Setenv("LOG_LEVEL", "DEBUG")
-	os.Setenv("GEMINI_API_KEY", "test-key")
-	os.Setenv("PUBSUB_TOPIC_SCAN_REQUESTS", "test-topic")
-	os.Setenv("PORT", "9090")
+	_ = os.Setenv("PROJECT_ID", "test-project")
+	_ = os.Setenv("REGION", "us-west1")
+	_ = os.Setenv("LOG_LEVEL", "DEBUG")
+	_ = os.Setenv("GEMINI_API_KEY", "test-key")
+	_ = os.Setenv("PUBSUB_TOPIC_SCAN_REQUESTS", "test-topic")
+	_ = os.Setenv("PORT", "9090")
 	defer func() {
-		os.Unsetenv("PROJECT_ID")
-		os.Unsetenv("REGION")
-		os.Unsetenv("LOG_LEVEL")
-		os.Unsetenv("GEMINI_API_KEY")
-		os.Unsetenv("PUBSUB_TOPIC_SCAN_REQUESTS")
-		os.Unsetenv("PORT")
+		_ = os.Unsetenv("PROJECT_ID")
+		_ = os.Unsetenv("REGION")
+		_ = os.Unsetenv("LOG_LEVEL")
+		_ = os.Unsetenv("GEMINI_API_KEY")
+		_ = os.Unsetenv("PUBSUB_TOPIC_SCAN_REQUESTS")
+		_ = os.Unsetenv("PORT")
 	}()
 
 	cfg := Load()
@@ -43,8 +43,8 @@ func TestLoad(t *testing.T) {
 
 func TestLoad_Defaults(t *testing.T) {
 	// Ensure environment is clean
-	os.Unsetenv("LOG_LEVEL")
-	os.Unsetenv("PORT")
+	_ = os.Unsetenv("LOG_LEVEL")
+	_ = os.Unsetenv("PORT")
 
 	cfg := Load()
 

@@ -13,7 +13,7 @@ resource "google_project_service" "cloudkms" {
 
 # KMS Key Ring
 resource "google_kms_key_ring" "key_ring" {
-  name       = "${var.cluster_name}-key-ring"
+  name       = "cra-key-ring"
   location   = var.region
   project    = var.project_id
   depends_on = [google_project_service.cloudkms]

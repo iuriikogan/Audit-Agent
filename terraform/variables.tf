@@ -9,16 +9,27 @@ variable "region" {
   default     = "us-central1"
 }
 
-variable "cluster_name" {
-  description = "The name of the GKE cluster"
+variable "cloud_run_server_name" {
+  description = "Name for the Cloud Run server service"
   type        = string
-  default     = "agent-engine-cluster"
+  default     = "cra-server"
+}
+
+variable "cloud_run_worker_name" {
+  description = "Name for the Cloud Run worker service"
+  type        = string
+  default     = "cra-worker"
+}
+
+variable "gcs_bucket_name" {
+  description = "Name for the GCS bucket for code storage"
+  type        = string
+  default     = "" # If empty, a unique bucket will be created
 }
 
 variable "image_repository" {
   description = "Container image repository (e.g., gcr.io/my-project/agent-cra)"
   type        = string
-  default     = "gcr.io/google-containers/echoserver:1.10" # Placeholder default
 }
 
 variable "gemini_api_key" {
@@ -27,8 +38,27 @@ variable "gemini_api_key" {
   sensitive   = true
 }
 
-variable "master_ipv4_cidr_block" {
-  description = "The IP range in CIDR notation to use for the hosted master network"
+variable "db_version" {
+  description = "The version of the Cloud SQL PostgreSQL instance"
   type        = string
-  default     = "172.16.0.0/28"
+  default     = "POSTGRES_13"
+}
+
+variable "db_tier" {
+  description = "The tier for the Cloud SQL instance"
+  type        = string
+  default     = "db-g1-small"
+}
+
+variable "db_user" {
+  description = "The username for the Cloud SQL database"
+  type        = string
+  default     = "cra_user"
+}
+
+variable "db_password" {
+  description = "The password for the Cloud SQL database"
+  type        = string
+  sensitive   = true
+  default     = "change_me_in_production"
 }

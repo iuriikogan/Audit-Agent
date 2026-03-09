@@ -9,7 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"multi-agent-cra/pkg/tools"
+	"github.com/iuriikogan/multi-agent-cra/pkg/tools"
 
 	"github.com/google/generative-ai-go/genai"
 )
