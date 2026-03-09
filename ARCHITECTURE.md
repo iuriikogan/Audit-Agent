@@ -1,67 +1,101 @@
-# System Architecture
+# System Architecture & Security Design
 
-This document describes the technical architecture of the Multi-Agent Cyber Resilience Act (CRA) Compliance System.
+This document describes the technical architecture of the Multi-Agent Cyber Resilience Act (CRA) Compliance System. It adheres strictly to the **12-Factor App methodology**, ensuring portability, resilience, and scale on Google Cloud Platform (GCP).
 
-## Overview
+## 🏗️ High-Level Deployment Architecture
 
-The system is designed as an event-driven, microservices-based application running on Google Cloud Platform. It leverages **Google Cloud Pub/Sub** for asynchronous communication between agents, **Cloud Run** (or **GKE**) for compute, and **Firestore** for state management. **Google Gemini 1.5 Pro** serves as the reasoning engine for the AI agents.
+The system is deployed as a single compiled Go binary that adapts its behavior based on the `ROLE` environment variable, enabling independent scaling of the API/UI and background processing workloads on Google Cloud Run.
 
-## Core Components
+```mermaid
+graph TD
+    User([Security Engineer]) -->|HTTPS| CloudArmor[Cloud Armor WAF]
+    CloudArmor --> Server[Cloud Run: API/UI Server]
+    
+    Server -->|Read/Write| DB[(Cloud SQL / SQLite)]
+    Server -->|Publish Scan| PubSub_Scan[Pub/Sub: scan-requests]
+    Server -.->|SSE Stream| User
+    
+    WorkerFleet[Cloud Run: Worker Fleet] -->|Subscribe| PubSub_Scan
+    WorkerFleet <-->|Multi-stage Pipeline| PubSub_Internal[Pub/Sub: Internal Queues]
+    WorkerFleet -->|Read/Write| DB
+    WorkerFleet -->|Broadcast Events| PubSub_Monitoring[Pub/Sub: monitoring-events]
+    
+    PubSub_Monitoring -->|Consume| Server
+    
+    WorkerFleet <-->|Agent Reasoning| Gemini[Google Gemini API]
+    WorkerFleet <-->|Discover/Tag| GCP_API[GCP Asset Inventory API]
 
-### 1. API Server (`cmd/server`)
-*   **Role:** Entry point for user requests.
-*   **Functionality:**
-    *   Exposes HTTP endpoints (`POST /api/scan`).
-    *   Authenticates users (mocked/IAP).
-    *   Publishes scan jobs to the `scan-requests` Pub/Sub topic.
-    *   Provides health checks (`/healthz`).
+    classDef gcp fill:#e8f0fe,stroke:#1a73e8,stroke-width:2px;
+    class Server,WorkerFleet,CloudArmor,PubSub_Scan,PubSub_Internal,PubSub_Monitoring,DB,Gemini,GCP_API gcp;
+```
 
-### 2. Worker Agents (`cmd/worker`)
-*   **Role:** Autonomous units performing specific compliance tasks.
-*   **Scalability:** Horizontal scaling based on Pub/Sub queue depth.
-*   **Agent Roles:**
-    *   **Aggregator:** Listens to `scan-requests`. Queries Google Cloud Asset Inventory to discover resources. Publishes to `assets-found`.
-    *   **Modeler:** Listens to `assets-found`. Uses Gemini to map technical configurations to CRA requirements. Publishes to `models-generated`.
-    *   **Validator:** Listens to `models-generated`. Uses Gemini to validate compliance against specific rules. Publishes to `validation-results`.
-    *   **Reviewer:** Listens to `validation-results`. Aggregates findings and generates a final report.
-    *   **Tagger:** Applies labels to GCP resources based on compliance status.
-    *   **Visual Reporter:** Generates compliance dashboard images.
+## 🧠 Agent Pipeline & Data Flow
 
-### 3. Messaging Infrastructure (Pub/Sub)
-*   **Topics:**
-    *   `scan-requests`: Triggers a new compliance scan.
-    *   `assets-found`: Contains raw asset data.
-    *   `models-generated`: Contains CRA compliance models.
-    *   `validation-results`: Contains pass/fail results per resource.
-    *   `final-reports`: Aggregated reports.
+The compliance process is a multi-stage, event-driven pipeline where autonomous AI agents perform specific roles.
 
-### 4. Data Storage
-*   **Firestore (Optional/Planned):** Stores persistent state of scans, audit logs, and historical compliance data.
-*   **Cloud Storage:** Stores generated reports (PDF/CSV) and dashboard images.
+```mermaid
+sequenceDiagram
+    participant UI as CRA Dashboard
+    participant API as API Server
+    participant PS as Pub/Sub
+    participant Agg as Agent: Aggregator
+    participant Mod as Agent: Modeler
+    participant Val as Agent: Validator
+    participant Rev as Agent: Reviewer
+    participant Tag as Agent: Tagger
+    participant DB as Cloud SQL
+    participant GCP as GCP APIs
 
-### 5. AI Engine
-*   **Google Gemini API:**
-    *   `gemini-3.1-flash-lite-preview`: Used for high-volume, low-latency tasks (Aggregator, Tagger).
-    *   `gemini-3-pro-preview`: Used for complex reasoning and validation (Modeler, Validator, Reviewer).
+    UI->>API: POST /api/scan {scope: "org/123"}
+    API->>DB: CreateScan(job_id, "running")
+    API->>PS: Publish(scan-requests, job_id)
+    
+    PS-->>Agg: Consume(scan-requests)
+    Agg->>GCP: ListAssets(scope)
+    GCP-->>Agg: [Asset1, Asset2...]
+    loop For each Asset
+        Agg->>PS: Publish(aggregator-tasks, AssetN)
+    end
+    
+    PS-->>Mod: Consume(aggregator-tasks)
+    Mod->>Mod: Gemini Reasoning: Map asset to CRA framework
+    Mod->>PS: Publish(modeler-tasks, CRA_Model)
+    
+    PS-->>Val: Consume(modeler-tasks)
+    Val->>Val: Gemini Reasoning: Evaluate compliance rules
+    Val->>DB: AddFinding(job_id, Finding)
+    Val->>PS: Publish(validator-tasks, Validation_Result)
+    
+    PS-->>Rev: Consume(validator-tasks)
+    Rev->>Rev: Gemini Reasoning: Peer review validation logic
+    Rev->>PS: Publish(reviewer-tasks, Reviewed_Result)
+    
+    PS-->>Tag: Consume(reviewer-tasks)
+    Tag->>GCP: Apply compliance tags/labels
+    
+    Note over Agg,Tag: All agents continuously publish telemetry to 'monitoring-events'
+    PS-->>API: Consume(monitoring-events)
+    API-->>UI: Server-Sent Events (SSE) Live Update
+```
 
-### 6. Security (Cloud Armor)
-*   **WAF & DDoS Protection:** Google Cloud Armor protects the public endpoints.
-*   **Model Armor:** Specific AI/LLM protection rules (e.g., prompt injection, jailbreak detection) are applied to the ingress traffic.
-*   **Management:** Security policies are managed via the Google Cloud Console to leverage Adaptive Protection and fine-grained rule tuning.
+## 🔒 Security Controls
 
-## Data Flow
+1.  **Strict 12-Factor Configuration:** No secrets (API keys, DB credentials) are stored in code or configuration files. They are injected exclusively via environment variables at runtime, sourced from Google Secret Manager.
+2.  **Least Privilege Execution:**
+    *   The `server` role requires only database access and Pub/Sub publish rights.
+    *   The `worker` role operates under a dedicated Service Account with specific permissions to read Cloud Asset Inventory and apply Resource Tags. It does not expose any inbound network ports.
+3.  **Network Isolation:** 
+    *   The Cloud SQL database is deployed with a private IP within a Virtual Private Cloud (VPC), inaccessible from the public internet.
+    *   Serverless VPC Access connectors route traffic from Cloud Run to the private database.
+4.  **Ingress Protection:**
+    *   Google Cloud Armor sits in front of the API server, providing WAF and DDoS protection.
+    *   **Model Armor** integration inspects incoming requests for prompt injection or jailbreak attempts before they reach the Gemini AI agents.
 
-1.  **User** submits a scan request for a Project/Folder via the API.
-2.  **API Server** validates the request and publishes a message to `scan-requests`.
-3.  **Aggregator Worker** picks up the message, lists all GCP assets in the scope, and publishes individual asset messages to `assets-found`.
-4.  **Modeler Worker** processes each asset, generating a compliance model JSON, and publishes to `models-generated`.
-5.  **Validator Worker** checks the model against hardcoded or retrieved CRA rules, publishing results to `validation-results`.
-6.  **Reviewer/Tagger/Reporter** act on the results to finalize the workflow.
+## 💾 State Management
 
-## Infrastructure as Code (Terraform)
+The system abstracts state management through a `Store` interface, allowing flexibility based on deployment needs:
 
-The `terraform/` directory contains the definition for:
-*   GKE Cluster (Autopilot)
-*   Pub/Sub Topics and Subscriptions.
-*   IAM Service Accounts and Bindings.
-*   VPC Network and Security configurations.
+*   **Cloud SQL (PostgreSQL):** Used for production. Provides robust, concurrent transaction support and complex querying capabilities for the CRA Dashboard.
+*   **SQLite (In-Memory):** Used for local development and CI/CD pipelines. It provides a zero-dependency, ephemeral database that perfectly mimics the relational structure of Cloud SQL without requiring a running database server.
+
+The frontend dashboard queries this state via the `/api/findings` endpoint, pulling historical compliance data independently of the real-time Pub/Sub pipeline.

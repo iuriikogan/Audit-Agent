@@ -34,7 +34,7 @@ steps:
       - '1'
 
 substitutions:
-  _REGION: us-central1
+  _REGION: europe-west1
   _REPO_NAME: multi-agent-cra
   _TAG: latest
 

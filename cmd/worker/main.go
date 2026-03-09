@@ -13,13 +13,13 @@ import (
 	"github.com/google/generative-ai-go/genai"
 	"google.golang.org/api/option"
 
-	"multi-agent-cra/pkg/agent"
-	"multi-agent-cra/pkg/config"
-	"multi-agent-cra/pkg/core"
-	"multi-agent-cra/pkg/logger"
-	"multi-agent-cra/pkg/queue"
-	"multi-agent-cra/pkg/tools"
-	"multi-agent-cra/pkg/workflow"
+	"github.com/iuriikogan/multi-agent-cra/pkg/agent"
+	"github.com/iuriikogan/multi-agent-cra/pkg/config"
+	"github.com/iuriikogan/multi-agent-cra/pkg/core"
+	"github.com/iuriikogan/multi-agent-cra/pkg/logger"
+	"github.com/iuriikogan/multi-agent-cra/pkg/queue"
+	"github.com/iuriikogan/multi-agent-cra/pkg/tools"
+	"github.com/iuriikogan/multi-agent-cra/pkg/workflow"
 )
 
 func main() {
@@ -38,11 +38,11 @@ func main() {
 		mux := http.NewServeMux()
 		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
-			fmt.Fprint(w, "Worker is running")
+			_, _ = fmt.Fprint(w, "Worker is running")
 		})
 		mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
-			fmt.Fprint(w, "OK")
+			_, _ = fmt.Fprint(w, "OK")
 		})
 		
 		slog.Info("Starting health check server", "port", port)

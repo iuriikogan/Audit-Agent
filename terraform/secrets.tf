@@ -46,3 +46,11 @@ resource "google_secret_manager_secret_iam_member" "reporter_access" {
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.sa_reporter.email}"
 }
+
+# Give the default compute SA access to the secret so Cloud Run can read it
+resource "google_secret_manager_secret_iam_member" "compute_sa_access" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.gemini_api_key.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
+}

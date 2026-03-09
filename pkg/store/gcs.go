@@ -11,32 +11,17 @@ import (
 	"google.golang.org/api/iterator"
 )
 
-type Store struct {
+type GCSStore struct {
 	client     *storage.Client
 	bucketName string
 }
 
-type ScanResult struct {
-	JobID       string     `json:"job_id"`
-	Scope       string     `json:"scope"`
-	Status      string     `json:"status"`
-	Findings    []Finding  `json:"findings"`
-	CreatedAt   time.Time  `json:"created_at"`
-	CompletedAt *time.Time `json:"completed_at,omitempty"`
-}
-
-type Finding struct {
-	ResourceName string `json:"resource_name"`
-	Status       string `json:"status"`
-	Details      string `json:"details"`
-}
-
-func NewGCS(ctx context.Context, bucketName string) (*Store, error) {
+func NewGCS(ctx context.Context, bucketName string) (Store, error) {
 	client, err := storage.NewClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create storage client: %w", err)
 	}
-	return &Store{
+	return &GCSStore{
 		client:     client,
 		bucketName: bucketName,
 	}, nil
@@ -53,7 +38,7 @@ func findingPath(jobID, resourceName string) string {
 	return fmt.Sprintf("scans/%s/findings/%s.json", jobID, resourceName)
 }
 
-func (s *Store) CreateScan(ctx context.Context, jobID, scope string) error {
+func (s *GCSStore) CreateScan(ctx context.Context, jobID, scope string) error {
 	scan := ScanResult{
 		JobID:     jobID,
 		Scope:     scope,
@@ -64,7 +49,7 @@ func (s *Store) CreateScan(ctx context.Context, jobID, scope string) error {
 	return s.writeJSON(ctx, metadataPath(jobID), scan)
 }
 
-func (s *Store) UpdateScanStatus(ctx context.Context, jobID, status string) error {
+func (s *GCSStore) UpdateScanStatus(ctx context.Context, jobID, status string) error {
 	// Read-Modify-Write metadata
 	// Note: In a high-concurrency scenario, generation preconditions should be used.
 	// For this worker, we assume single-writer ownership of the job.
@@ -82,13 +67,13 @@ func (s *Store) UpdateScanStatus(ctx context.Context, jobID, status string) erro
 	return s.writeJSON(ctx, metadataPath(jobID), scan)
 }
 
-func (s *Store) AddFinding(ctx context.Context, jobID string, f Finding) error {
+func (s *GCSStore) AddFinding(ctx context.Context, jobID string, f Finding) error {
 	// Write finding as a separate object to avoid contention on metadata file
 	// and to allow for listing.
 	return s.writeJSON(ctx, findingPath(jobID, f.ResourceName), f)
 }
 
-func (s *Store) GetScan(ctx context.Context, jobID string) (*ScanResult, error) {
+func (s *GCSStore) GetScan(ctx context.Context, jobID string) (*ScanResult, error) {
 	// 1. Get Metadata
 	scan, err := s.getScanMetadata(ctx, jobID)
 	if err != nil {
@@ -123,7 +108,7 @@ func (s *Store) GetScan(ctx context.Context, jobID string) (*ScanResult, error) 
 }
 
 // Helper: Get just the metadata object
-func (s *Store) getScanMetadata(ctx context.Context, jobID string) (*ScanResult, error) {
+func (s *GCSStore) getScanMetadata(ctx context.Context, jobID string) (*ScanResult, error) {
 	var scan ScanResult
 	if err := s.readJSON(ctx, metadataPath(jobID), &scan); err != nil {
 		return nil, err
@@ -132,25 +117,37 @@ func (s *Store) getScanMetadata(ctx context.Context, jobID string) (*ScanResult,
 }
 
 // Helper: Write interface to JSON object in GCS
-func (s *Store) writeJSON(ctx context.Context, object string, data interface{}) error {
+func (s *GCSStore) writeJSON(ctx context.Context, object string, data interface{}) error {
 	w := s.client.Bucket(s.bucketName).Object(object).NewWriter(ctx)
 	if err := json.NewEncoder(w).Encode(data); err != nil {
-		w.Close()
+		_ = w.Close()
 		return err
 	}
 	return w.Close()
 }
 
 // Helper: Read JSON object from GCS to interface
-func (s *Store) readJSON(ctx context.Context, object string, dest interface{}) error {
+func (s *GCSStore) readJSON(ctx context.Context, object string, dest interface{}) error {
 	r, err := s.client.Bucket(s.bucketName).Object(object).NewReader(ctx)
 	if err != nil {
 		return err
 	}
-	defer r.Close()
+	defer func() {
+		if err := r.Close(); err != nil {
+			slog.Warn("Failed to close storage reader", "error", err)
+		}
+	}()
 	return json.NewDecoder(r).Decode(dest)
 }
 
-func (s *Store) Close() error {
+// GetAllFindings is a no-op for GCS. Querying all findings across all jobs
+// via individual GCS JSON objects is highly inefficient.
+// CloudSQL or SQLite should be used for cross-job dashboarding.
+func (s *GCSStore) GetAllFindings(ctx context.Context) ([]Finding, error) {
+	return []Finding{}, nil
+}
+
+// Close closes the underlying storage client.
+func (s *GCSStore) Close() error {
 	return s.client.Close()
 }

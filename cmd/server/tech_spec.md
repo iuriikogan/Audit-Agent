@@ -1,70 +1,46 @@
 # Technical Specification: 12-Factor & CRA Compliance Refactoring
 
-## Overview
-This document outlines the architectural changes required to align the Multi-Agent CRA application with 12-Factor App standards and to implement real-time security monitoring capabilities.
+## Purpose
+Refactor the `multi-agent-cra` project to strictly adhere to 12-factor app standards, implement an event-driven agent architecture using GCP MCP servers for real-time Cyber Resilience Act (CRA) compliance monitoring, and build a frontend dashboard for real-time security engineer oversight.
 
-## 12-Factor App Adherence
+## Prerequisites
+- Go 1.22+ and `golangci-lint` installed.
+- Node.js and `npm` installed (for the `web/` frontend).
+- GCP access (Cloud Monitoring, BigQuery, Pub/Sub, Cloud Run, GCP MCP Servers).
 
-### 1. Codebase
-- **Current**: Single codebase.
-- **Change**: Maintain single repository, but separate build targets or execution roles for the API Server and AI Worker.
+## Context
+The current implementation combines server and worker roles, relies on local file/GCS state, coordinates agents via in-memory Go channels, and uses `gcloud` CLI calls. To satisfy 12-factor standards and enable security engineers to monitor real-time CRA compliance, the architecture must transition to isolated Cloud Run processes, Pub/Sub event-driven pipelines, GCP MCP servers, and GCS/CloudSQL for state. Additionally, a frontend dashboard is required to surface these real-time streams and provide control over AI agent jobs.
 
-### 2. Dependencies
-- **Current**: Managed via `go.mod`.
-- **Change**: Ensure explicit declaration across all modules "github.com/iuriikogan/multi-agent-cra" 
+## Changes
 
-### 3. Config
-- **Current**: Mixed approach (some via `config` package, some directly in `main.go`).
-- **Change**: All configuration strictly pulled from environment variables using the os.env package
+1. **Config & Logs (12-Factor Adherence)**: 
+   Update `pkg/config/config.go` and `cmd/server/main.go` to strictly use environment variables for configuration. Update `pkg/logger` to ensure `slog` exclusively writes to `Stdout` without local file routing.
+2. **Process Separation & Disposability**: 
+   Refactor `cmd/server/main.go` into separate execution paths based on a `ROLE` env var (`server` or `worker`). Implement context cancellation on `SIGTERM`/`SIGINT` for graceful shutdown. 
+3. **State Management Refactoring**: 
+   Replace GCS/local JSON file state management in `pkg/store/gcs.go` with interfaces for cloudsql.
+4. **Event-Driven Agent Architecture**: 
+   Refactor `pkg/workflow` (Coordinator) to replace in-memory Go channels with Pub/Sub message publishing and subscribing. Each agent will process an event and publish the result back to Pub/Sub.
+5. **GCP MCP Servers Integration**: 
+   Replace shell-out `gcloud` executions in `pkg/tools/executor.go` with GCP Model Context Protocol (MCP) server integrations to bridge security data and AI agents in real time.
+6. **Real-Time CRA Monitoring & API**: 
+   Implement real-time metrics emission to Cloud Monitoring. Add a `/api/stream` Server-Sent Events (SSE) endpoint to the server (`cmd/server/main.go`) to stream structured compliance audit trails to the frontend.
+7. **Dashboard UI & Frontend**: 
+   Update the Next.js application in the `web/` directory to consume the `/api/stream` SSE endpoint. Implement a live logging interface for CRA compliance status and a chat box integration allowing security engineers to trigger new agent jobs.
 
-### 4. Backing Services
-- **Current**: Pub/Sub (Messaging), GCS (Storage).
-- **Change**: Treat all backing services as attached resources. Use stdout for cloud logging. Use GCS or CloudSQL, whichever is easier and cheaper
+## Out of Scope
+- Provisioning actual GCP resources via Terraform (infrastructure as code is assumed to be handled separately or pre-existing). 
 
-### 5. Build, Release, Run
-- **Change**: Strictly separate stages using CI/CD.
+## Verification
+Every check below is mandatory. Do not skip any.
+- Every Go change MUST be followed by a successful `golangci-lint run ./...`.
+- Go unit tests must pass (`go test ./... -count=1`).
+- Configurations must strictly use environment variables and not hardcode any credentials.
+- The `ROLE` environment variable must determine the backend process mode.
+- The Next.js frontend must build successfully (`npm run build` in the `web/` directory).
 
-### 6. Processes
-- **Current**: `main.go` runs both the API server and the Pub/Sub subscriber (worker) in the same process.
-- **Change**: Separate processes. Introduce a `ROLE` environment variable (`server` or `worker`) so the same image can be deployed differently, allowing independent scaling on Cloud Run.
+## Branch
+`refactor/12-factor-cra-compliance`
 
-### 7. Port Binding
-- **Current**: Implemented.
-- **Change**: Ensure the web server strictly binds to `$PORT`.
-
-### 8. Concurrency
-- **Change**: Scale out the worker processes via Cloud Run based on Pub/Sub queue depth.
-
-### 9. Disposability
-- **Change**: Implement graceful shutdown for both the server and worker processes using context cancellation on `SIGTERM`.
-
-### 10. Dev/Prod Parity
-- **Change**: Keep development, staging, and production as similar as possible using containerization.
-
-### 11. Logs
-- **Current**: `slog` is used.
-- **Change**: Ensure all logs are written to `stdout` without local file routing. Forward to Cloud Logging.
-
-### 12. Admin Processes
-- **Change**: Run admin/management tasks as one-off processes.
-
-## Security Engineer Monitoring (CRA Compliance)
-
-### 1. Real-time Telemetry (Pub/Sub)
-- **Change**: Emit granular events (`StepStarted`, `StepCompleted`, `AgentInsight`, `AuditTrail`) to a dedicated Pub/Sub topic (`compliance-telemetry`).
-
-### 2. Live Dashboard Interface (Server)
-- **Change**: The server will provide a `/api/stream` (SSE or WebSocket) endpoint to push real-time telemetry to the security dashboard.
-
-### 3. Structured Audit Trail
-- **Change**: AI agents must output structured JSON including reasoning and evidence.
-
-## Proposed Changes to `cmd/server/main.go`
-1. **Process Separation**: Read the `ROLE` env var. If `ROLE==worker`, start only the Pub/Sub subscriber. If `ROLE==server`, start only the HTTP server.
-2. **Graceful Shutdown**: Trap `SIGINT` and `SIGTERM` and pass a cancellable context to the worker/server.
-3. **Configuration**: Rely explicitly on `os.Getenv()` for top-level configs in `main.go` to adhere to factor III.
-4. **Telemetry Setup**: Add a mock or skeleton for emitting compliance telemetry to BigQuery/Cloud Monitoring.
-
-## Action Plan
-1. **Step 1**: Refactor `cmd/server/main.go` to implement Process Separation (ROLE), Config via Env, and Graceful Shutdown.
-2. **Step 2**: Add Realtime Monitoring logic (SSE endpoint for dashboard).
+## Provenance
+`specs/provenance/refactor-cra-compliance.provenance.md`
