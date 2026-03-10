@@ -1,16 +1,4 @@
 steps:
-  # --- FRONTEND BUILD & DEPLOY ---
-  # 1. Build Frontend Image
-  - name: 'gcr.io/cloud-builders/docker'
-    id: 'Build Frontend'
-    args: ['build', '-t', '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/frontend:${_TAG}', '-f', 'web/Dockerfile', 'web/']
-  
-  # 2. Push Frontend Image
-  - name: 'gcr.io/cloud-builders/docker'
-    id: 'Push Frontend'
-    args: ['push', '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/frontend:${_TAG}']
-
-
   # --- SERVER BUILD & DEPLOY ---
   # 4. Build Server Image
   - name: 'gcr.io/cloud-builders/docker'
@@ -42,19 +30,7 @@ steps:
       - '--min-instances'
       - '1'
 
-  # 7. Deploy Frontend Service (requires Server URL)
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    id: 'Deploy Frontend'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        SERVER_URL=$$(gcloud run services describe cra-server --region=${_REGION} --format="value(status.url)")
-        gcloud run deploy cra-dashboard \
-          --image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/frontend:${_TAG} \
-          --region=${_REGION} \
-          --allow-unauthenticated \
-          --set-env-vars="API_URL=$$SERVER_URL"
+
 
   # --- WORKER BUILD & DEPLOY ---
   # 4. Build Worker Image
@@ -85,8 +61,8 @@ steps:
       - 'PUBSUB_TOPIC_SCAN_REQUESTS=scan-requests,PUBSUB_SUB_SCAN_REQUESTS=scan-requests-sub'
       - '--set-secrets'
       - 'GEMINI_API_KEY=GEMINI_API_KEY:latest'
-      # Must be unauthenticated for basic HTTP Pub/Sub push in simple deployment
-      - '--allow-unauthenticated'
+      # Require authentication for Pub/Sub push requests
+      - '--no-allow-unauthenticated'
       # Allow scaling to 0, no CPU allocation when idle required anymore!
       - '--min-instances'
       - '0'
@@ -97,6 +73,5 @@ substitutions:
   _TAG: latest
 
 images:
-  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/frontend:${_TAG}'
   - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/server:${_TAG}'
   - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/worker:${_TAG}'

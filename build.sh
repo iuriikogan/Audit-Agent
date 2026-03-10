@@ -147,6 +147,12 @@ gcloud projects add-iam-policy-binding "$PROJECT_ID" \
   --role="roles/iam.serviceAccountUser" \
   --quiet
 
+echo "Granting Cloud Run Invoker role to Compute SA (required for authenticated Pub/Sub push)..."
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:$COMPUTE_SA" \
+  --role="roles/run.invoker" \
+  --quiet
+
 echo "Granting Pub/Sub Publisher and Subscriber roles to Compute SA..."
 gcloud projects add-iam-policy-binding "$PROJECT_ID" \
   --member="serviceAccount:$COMPUTE_SA" \
@@ -213,10 +219,15 @@ for i in "${!SUBS[@]}"; do
 
   if ! gcloud pubsub subscriptions describe "$SUB" &>/dev/null; then
     echo "Creating Pub/Sub Push subscription: $SUB attached to $TOPIC -> $PUSH_ENDPOINT"
-    gcloud pubsub subscriptions create "$SUB" --topic="$TOPIC" --push-endpoint="$PUSH_ENDPOINT"
+    gcloud pubsub subscriptions create "$SUB" \
+      --topic="$TOPIC" \
+      --push-endpoint="$PUSH_ENDPOINT" \
+      --push-auth-service-account="$COMPUTE_SA"
   else
     echo "Updating Pub/Sub Push subscription: $SUB to $PUSH_ENDPOINT"
-    gcloud pubsub subscriptions update "$SUB" --push-endpoint="$PUSH_ENDPOINT"
+    gcloud pubsub subscriptions update "$SUB" \
+      --push-endpoint="$PUSH_ENDPOINT" \
+      --push-auth-service-account="$COMPUTE_SA"
   fi
 done
 

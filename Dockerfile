@@ -1,4 +1,14 @@
 # Use a multi-stage build for production efficiency
+
+# --- Stage 1: Frontend Builder ---
+FROM node:20-alpine AS frontend-builder
+WORKDIR /app/web
+COPY web/package*.json ./
+RUN npm install
+COPY web/ ./
+RUN npm run build
+
+# --- Stage 2: Backend Builder ---
 FROM golang:1.24 AS backend-builder
 WORKDIR /app
 ENV GOTOOLCHAIN=auto
@@ -14,9 +24,6 @@ COPY . .
 ARG TARGET=server
 
 # Build the binary
-# We only build the target requested. 
-# For 'server', it will include the embedded assets.
-# For 'worker', it ignores them.
 RUN CGO_ENABLED=0 GOOS=linux go build -o /app/bin/app ./cmd/${TARGET}/main.go
 
 # --- Stage 3: Final Runtime Image ---
@@ -28,6 +35,9 @@ RUN apk --no-cache add ca-certificates
 
 # Copy the binary from the backend builder
 COPY --from=backend-builder /app/bin/app ./app
+
+# Copy the static Next.js export
+COPY --from=frontend-builder /app/web/out ./web/out
 
 # Expose port
 EXPOSE 8080

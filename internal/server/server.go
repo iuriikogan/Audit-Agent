@@ -137,6 +137,10 @@ func NewAppHandler(ctx context.Context, cfg *config.Config, pubsubClient *queue.
 		}
 	})
 
+	// Serve the static Next.js export from the web/out directory
+	fs := http.FileServer(http.Dir("web/out"))
+	apiMux.Handle("/", fs)
+
 	return apiMux
 }
 
