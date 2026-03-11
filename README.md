@@ -89,7 +89,7 @@ For production deployments to Google Cloud Run, execute the build script:
 
 To verify the deployment:
 
-1.  Navigate to the provided dashboard URL (e.g., http://localhost:8080 or the Cloud Run service URL).
+1.  Proxy the service to your localhost via gcloud cli to make it available at localhost:8080
 2.  Initiate a test scan from the UI.
 3.  Check the server logs to ensure Pub/Sub messages are being processed and the state is written to the database without errors.
 
