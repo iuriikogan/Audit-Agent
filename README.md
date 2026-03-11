@@ -56,7 +56,7 @@ Before deploying the application locally or in production, ensure the following 
 
 *   Google Cloud Platform project with billing enabled.
 *   Valid Google Cloud credentials configured (`gcloud auth application-default login`).
-*   Go 1.22 or higher installed.
+*   Go 1.225 or higher installed.
 *   A valid Gemini API Key.
 *   (Production) Google Cloud services enabled: run.googleapis.com, cloudbuild.googleapis.com, artifactregistry.googleapis.com, secretmanager.googleapis.com.
 
