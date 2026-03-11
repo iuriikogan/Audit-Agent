@@ -19,7 +19,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error creating client: %v", err)
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			log.Fatalf("Failed to close client: %v", err)
+		}
+	}()
 
 	req := &assetpb.ListAssetsRequest{
 		Parent: "projects/development-485208",

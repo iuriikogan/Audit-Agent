@@ -68,12 +68,20 @@ Example: APPLIED_TAGS: cra_status=non_compliant,remediation=urgent`),
 		agent.WithTools(tools.TaggingTools...),
 	)
 
+	reporterAgent := agent.New(genaiClient, cfg.APIKey, "Reporter", "Reporting", cfg.Models.Reporter,
+		agent.WithSystemInstruction(`You are a CRA Compliance Reporter.
+Your task is to generate a final report for the CRA scan.
+The report should include the resource name, the compliance status, and a detailed explanation of the finding.
+The output should be a JSON object with the following fields: 'resource_name', 'status', 'details'.`),
+	)
+
 	cleanup := func() {
 		_ = aggregatorAgent.Close()
 		_ = modelerAgent.Close()
 		_ = validatorAgent.Close()
 		_ = reviewerAgent.Close()
 		_ = taggerAgent.Close()
+		_ = reporterAgent.Close()
 		_ = genaiClient.Close()
 	}
 
@@ -83,7 +91,8 @@ Example: APPLIED_TAGS: cra_status=non_compliant,remediation=urgent`),
 	wf.RegisterPushHandler(mux, "/pubsub/modeler", cfg.PubSub.TopicValidator, modelerAgent, workflow.ProcessModeling)
 	wf.RegisterPushHandler(mux, "/pubsub/validator", cfg.PubSub.TopicReviewer, validatorAgent, workflow.ProcessValidation)
 	wf.RegisterPushHandler(mux, "/pubsub/reviewer", cfg.PubSub.TopicTagger, reviewerAgent, workflow.ProcessReview)
-	wf.RegisterPushHandler(mux, "/pubsub/tagger", "", taggerAgent, workflow.ProcessTagging)
+	wf.RegisterPushHandler(mux, "/pubsub/tagger", cfg.PubSub.TopicReporter, taggerAgent, workflow.ProcessTagging)
+	wf.RegisterPushHandler(mux, "/pubsub/reporter", "", reporterAgent, workflow.ProcessReporting)
 
 	slog.Info("Worker routes registered. Listening for push requests...")
 	

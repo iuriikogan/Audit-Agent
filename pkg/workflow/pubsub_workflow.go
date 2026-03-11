@@ -89,7 +89,7 @@ func (w *PubSubWorkflow) RegisterPushHandler(mux *http.ServeMux, pattern string,
 			finding := store.Finding{
 				ResourceName: task.Resource.Name,
 				Status:       fmt.Sprintf("%v", task.Result.ApprovalStatus),
-				Details:      "Final CRA compliance result",
+				Details:      task.Result.ComplianceReport,
 			}
 			if err := w.db.AddFinding(ctx, task.JobID, finding); err != nil {
 				slog.Error("Failed to save final finding", "error", err)
@@ -151,4 +151,18 @@ func ProcessTagging(ctx context.Context, a agent.Agent, task *AgentTask) error {
 	tags, err := a.Chat(ctx, fmt.Sprintf("Suggest tags for resource based on report: %s", task.Result.ComplianceReport))
 	task.Result.Tags = tags
 	return err
+}
+
+func ProcessReporting(ctx context.Context, a agent.Agent, task *AgentTask) error {
+	report, err := a.Chat(ctx, fmt.Sprintf("Generate a CRA compliance report for resource: %s, with compliance status: %s and details: %s", task.Resource.Name, task.Result.ApprovalStatus, task.Result.ComplianceReport))
+	if err != nil {
+		return err
+	}
+	var finding store.Finding
+	if err := json.Unmarshal([]byte(report), &finding); err != nil {
+		return fmt.Errorf("failed to unmarshal finding from report: %w", err)
+	}
+	task.Result.ApprovalStatus = finding.Status
+	task.Result.ComplianceReport = finding.Details
+	return nil
 }

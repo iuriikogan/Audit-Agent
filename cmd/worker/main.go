@@ -60,7 +60,11 @@ func main() {
 		slog.Error("Failed to initialize Pub/Sub client", "error", err)
 		os.Exit(1)
 	}
-	defer pubsubClient.Close()
+	defer func() {
+		if err := pubsubClient.Close(); err != nil {
+			slog.Error("Failed to close Pub/Sub client", "error", err)
+		}
+	}()
 
 	var storeClient store.Store
 	switch cfg.DatabaseType {
@@ -83,7 +87,11 @@ func main() {
 		slog.Error("Failed to init Store", "error", err)
 		os.Exit(1)
 	}
-	defer storeClient.Close()
+	defer func() {
+		if err := storeClient.Close(); err != nil {
+			slog.Error("Failed to close store client", "error", err)
+		}
+	}()
 
 	cleanupWorker, err := worker.RegisterRoutes(ctx, mux, cfg, pubsubClient, storeClient)
 	if err != nil {

@@ -129,7 +129,7 @@ func NewAppHandler(ctx context.Context, cfg *config.Config, pubsubClient *queue.
 	apiMux.HandleFunc("/api/scan", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
-			handleScanCreate(w, r, pubsubClient, cfg)
+			handleScanCreate(w, r, pubsubClient, cfg, db)
 		case http.MethodGet:
 			handleGetScan(w, r, db)
 		default:
@@ -176,7 +176,7 @@ func Start(ctx context.Context, cfg *config.Config, pubsubClient *queue.Client, 
 	return nil
 }
 
-func handleScanCreate(w http.ResponseWriter, r *http.Request, pubsubClient *queue.Client, cfg *config.Config) {
+func handleScanCreate(w http.ResponseWriter, r *http.Request, pubsubClient *queue.Client, cfg *config.Config, db store.Store) {
 	var req struct {
 		Scope string `json:"scope"`
 	}
@@ -187,6 +187,12 @@ func handleScanCreate(w http.ResponseWriter, r *http.Request, pubsubClient *queu
 
 	jobID := uuid.New().String()
 	msg, _ := json.Marshal(map[string]string{"job_id": jobID, "scope": req.Scope})
+
+	if err := db.CreateScan(r.Context(), jobID, req.Scope); err != nil {
+		slog.Error("Failed to create scan record", "error", err)
+		http.Error(w, "Failed to initialize scan", http.StatusInternalServerError)
+		return
+	}
 
 	if err := pubsubClient.Publish(r.Context(), cfg.PubSub.TopicScanRequests, msg); err != nil {
 		slog.Error("Failed to publish scan request", "error", err)
