@@ -14,8 +14,37 @@ BUCKET_NAME="cra-data-${PROJECT_ID}"
 echo "Using Project: $PROJECT_ID ($PROJECT_NUMBER)"
 echo "Using Region: $REGION"
 
+# --- Configuration Defaults ---
+MODEL_AGGREGATOR="gemini-3.1-flash-lite-preview"
+MODEL_MODELER="gemini-3-pro-preview"
+MODEL_VALIDATOR="gemini-3-pro-preview"
+MODEL_REVIEWER="gemini-3-pro-preview"
+MODEL_TAGGER="gemini-3.1-flash-lite-preview"
+MODEL_REPORTER="gemini-3-pro-preview"
+DESTROY=0
+
+# --- Parse Arguments ---
+while [[ "$#" -gt 0 ]]; do
+  case $1 in
+    --destroy|-d) DESTROY=1; shift ;;
+    --model-aggregator=*) MODEL_AGGREGATOR="${1#*=}"; shift ;;
+    --model-aggregator) MODEL_AGGREGATOR="$2"; shift 2 ;;
+    --model-modeler=*) MODEL_MODELER="${1#*=}"; shift ;;
+    --model-modeler) MODEL_MODELER="$2"; shift 2 ;;
+    --model-validator=*) MODEL_VALIDATOR="${1#*=}"; shift ;;
+    --model-validator) MODEL_VALIDATOR="$2"; shift 2 ;;
+    --model-reviewer=*) MODEL_REVIEWER="${1#*=}"; shift ;;
+    --model-reviewer) MODEL_REVIEWER="$2"; shift 2 ;;
+    --model-tagger=*) MODEL_TAGGER="${1#*=}"; shift ;;
+    --model-tagger) MODEL_TAGGER="$2"; shift 2 ;;
+    --model-reporter=*) MODEL_REPORTER="${1#*=}"; shift ;;
+    --model-reporter) MODEL_REPORTER="$2"; shift 2 ;;
+    *) echo "Unknown parameter: $1"; exit 1 ;;
+  esac
+done
+
 # --- Handle Destroy Flag ---
-if [[ "$1" == "--destroy" || "$1" == "-d" ]]; then
+if [[ "$DESTROY" == "1" ]]; then
   echo "Destroy flag detected. Tearing down resources..."
 
   echo "Deleting Cloud Run services..."
@@ -135,6 +164,12 @@ gcloud projects add-iam-policy-binding "$PROJECT_ID" \
   --role="roles/logging.logWriter" \
   --quiet
 
+echo "Granting Storage Admin role to Compute SA (required to access Cloud Build source bucket)..."
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:$COMPUTE_SA" \
+  --role="roles/storage.admin" \
+  --quiet
+
 echo "Granting Cloud Run Admin role to Compute SA..."
 gcloud projects add-iam-policy-binding "$PROJECT_ID" \
   --member="serviceAccount:$COMPUTE_SA" \
@@ -172,7 +207,8 @@ gcloud projects add-iam-policy-binding "$PROJECT_ID" \
 
 # --- 7. Trigger Cloud Build ---
 echo "Starting Cloud Build to build and deploy services..."
-gcloud builds submit --config=cloudbuild.yaml --substitutions=_REGION="$REGION" .
+gcloud builds submit --config=cloudbuild.yaml \
+  --substitutions=_REGION="$REGION",_MODEL_AGGREGATOR="$MODEL_AGGREGATOR",_MODEL_MODELER="$MODEL_MODELER",_MODEL_VALIDATOR="$MODEL_VALIDATOR",_MODEL_REVIEWER="$MODEL_REVIEWER",_MODEL_TAGGER="$MODEL_TAGGER",_MODEL_REPORTER="$MODEL_REPORTER" .
 
 # --- 8. Setup Pub/Sub Push Subscriptions ---
 echo "Getting Worker Service URL..."

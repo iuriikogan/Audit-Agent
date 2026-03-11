@@ -12,15 +12,25 @@ import (
 	"google.golang.org/api/option"
 
 	"github.com/iuriikogan/multi-agent-cra/internal/batch"
+	"github.com/iuriikogan/multi-agent-cra/pkg/config"
 	"github.com/iuriikogan/multi-agent-cra/pkg/logger"
 )
 
 func main() {
+	cfg := config.Load()
+
 	mode := flag.String("mode", "batch", "The execution mode (batch or server)")
 	project := flag.String("project", "", "GCP Project ID")
 	folder := flag.String("folder", "", "GCP Folder ID")
 	org := flag.String("org", "", "GCP Organization ID")
-	logLevel := flag.String("log-level", "INFO", "Log level (DEBUG, INFO, WARN, ERROR)")
+	logLevel := flag.String("log-level", cfg.LogLevel, "Log level (DEBUG, INFO, WARN, ERROR)")
+
+	flag.StringVar(&cfg.Models.Aggregator, "model-aggregator", cfg.Models.Aggregator, "Model for ResourceAggregator agent")
+	flag.StringVar(&cfg.Models.Modeler, "model-modeler", cfg.Models.Modeler, "Model for CRAModeler agent")
+	flag.StringVar(&cfg.Models.Validator, "model-validator", cfg.Models.Validator, "Model for ComplianceValidator agent")
+	flag.StringVar(&cfg.Models.Reviewer, "model-reviewer", cfg.Models.Reviewer, "Model for Reviewer agent")
+	flag.StringVar(&cfg.Models.Tagger, "model-tagger", cfg.Models.Tagger, "Model for ResourceTagger agent")
+	flag.StringVar(&cfg.Models.VisualReporter, "model-reporter", cfg.Models.VisualReporter, "Model for VisualReporter agent")
 
 	flag.Parse()
 
@@ -40,7 +50,7 @@ func main() {
 		}
 	}()
 
-	apiKey := os.Getenv("GEMINI_API_KEY")
+	apiKey := cfg.APIKey
 	if apiKey == "" {
 		slog.Error("GEMINI_API_KEY is not set")
 		os.Exit(1)
@@ -64,7 +74,7 @@ func main() {
 	scope := "projects/demo-project"
 	if *project != "" {
 		scope = fmt.Sprintf("projects/%s", *project)
-	} else if envProject := os.Getenv("PROJECT_ID"); envProject != "" {
+	} else if envProject := cfg.ProjectID; envProject != "" {
 		scope = fmt.Sprintf("projects/%s", envProject)
 	} else if *folder != "" {
 		scope = fmt.Sprintf("folders/%s", *folder)
@@ -72,5 +82,5 @@ func main() {
 		scope = fmt.Sprintf("organizations/%s", *org)
 	}
 
-	batch.Run(ctx, client, apiKey, scope)
+	batch.Run(ctx, client, apiKey, scope, cfg.Models)
 }

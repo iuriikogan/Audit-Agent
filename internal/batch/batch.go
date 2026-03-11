@@ -11,39 +11,40 @@ import (
 
 	"github.com/google/generative-ai-go/genai"
 	"github.com/iuriikogan/multi-agent-cra/pkg/agent"
+	"github.com/iuriikogan/multi-agent-cra/pkg/config"
 	"github.com/iuriikogan/multi-agent-cra/pkg/core"
 	"github.com/iuriikogan/multi-agent-cra/pkg/tools"
 	"github.com/iuriikogan/multi-agent-cra/pkg/workflow"
 )
 
 // Run executes the batch analysis workflow.
-func Run(ctx context.Context, client *genai.Client, apiKey, scope string) {
-	aggregatorAgent := agent.New(client, apiKey, "ResourceAggregator", "Ingestion", "gemini-3.1-flash-lite-preview",
+func Run(ctx context.Context, client *genai.Client, apiKey, scope string, models config.ModelsConfig) {
+	aggregatorAgent := agent.New(client, apiKey, "ResourceAggregator", "Ingestion", models.Aggregator,
 		agent.WithSystemInstruction(`You are a Resource Aggregator. 
 			Your task is to list and ingest GCP assets for a given scope.
 			When asked to list assets, use the list_gcp_assets tool and return ONLY the raw JSON array of assets.`),
 		agent.WithTools(tools.IngestionTools...),
 	)
 
-	modelerAgent := agent.New(client, apiKey, "CRAModeler", "Modeling", "gemini-3-pro-preview",
+	modelerAgent := agent.New(client, apiKey, "CRAModeler", "Modeling", models.Modeler,
 		agent.WithSystemInstruction(`You are a CRA Modeler.
 			Your task is to take a structured data repository and apply the Cyber Resilience Act (CRA) compliance framework to generate a compliance model.`),
 	)
 
-	validatorAgent := agent.New(client, apiKey, "ComplianceValidator", "Validation", "gemini-3-pro-preview",
+	validatorAgent := agent.New(client, apiKey, "ComplianceValidator", "Validation", models.Validator,
 		agent.WithSystemInstruction(`You are a Compliance Validator.
 			Your task is to validate a compliance model against CRA rules and output a compliance report with findings and deviations.`),
 		agent.WithTools(tools.RegulatoryCheckerTools...),
 		agent.WithTools(tools.ComplianceTools...),
 	)
 
-	reviewerAgent := agent.New(client, apiKey, "Reviewer", "Approval", "gemini-3-pro-preview",
+	reviewerAgent := agent.New(client, apiKey, "Reviewer", "Approval", models.Reviewer,
 		agent.WithSystemInstruction(`You are a Compliance Reviewer.
 			Your task is to review the compliance report and provide an approval status and final report summary.`),
 		agent.WithTools(tools.ComplianceTools...),
 	)
 
-	taggerAgent := agent.New(client, apiKey, "ResourceTagger", "Tagging", "gemini-3.1-flash-lite-preview",
+	taggerAgent := agent.New(client, apiKey, "ResourceTagger", "Tagging", models.Tagger,
 		agent.WithSystemInstruction(`You are a Resource Tagger.
 			Your task is to tag resources that have issues identified in the compliance report with information on how to solve them.
 			If you apply tags, end your response with a line starting with 'APPLIED_TAGS:' followed by the tags in key=value format (comma-separated). 
@@ -51,7 +52,7 @@ func Run(ctx context.Context, client *genai.Client, apiKey, scope string) {
 		agent.WithTools(tools.TaggingTools...),
 	)
 
-	visualReporterAgent := agent.New(client, apiKey, "VisualReporter", "Reporting", "gemini-3-pro-preview",
+	visualReporterAgent := agent.New(client, apiKey, "VisualReporter", "Reporting", models.VisualReporter,
 		agent.WithSystemInstruction(`You are a Visual Reporting Agent. 
 			Your task is to generate a graphical compliance dashboard image. 
 			Use the generate_visual_dashboard tool to create the image. 

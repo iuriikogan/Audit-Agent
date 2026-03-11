@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -21,6 +22,14 @@ import (
 
 func main() {
 	cfg := config.Load()
+
+	flag.StringVar(&cfg.Models.Aggregator, "model-aggregator", cfg.Models.Aggregator, "Model for ResourceAggregator agent")
+	flag.StringVar(&cfg.Models.Modeler, "model-modeler", cfg.Models.Modeler, "Model for CRAModeler agent")
+	flag.StringVar(&cfg.Models.Validator, "model-validator", cfg.Models.Validator, "Model for ComplianceValidator agent")
+	flag.StringVar(&cfg.Models.Reviewer, "model-reviewer", cfg.Models.Reviewer, "Model for Reviewer agent")
+	flag.StringVar(&cfg.Models.Tagger, "model-tagger", cfg.Models.Tagger, "Model for ResourceTagger agent")
+	flag.Parse()
+
 	logger.Setup(cfg.LogLevel)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

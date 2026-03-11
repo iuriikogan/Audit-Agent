@@ -18,6 +18,17 @@ type Config struct {
 	StoreType     string
 	PubSub        PubSubConfig
 	Server        ServerConfig
+	Models        ModelsConfig
+}
+
+// ModelsConfig holds model names for each agent
+type ModelsConfig struct {
+	Aggregator     string
+	Modeler        string
+	Validator      string
+	Reviewer       string
+	Tagger         string
+	VisualReporter string
 }
 
 // PubSubConfig holds topic and subscription mappings.
@@ -77,6 +88,14 @@ func Load() *Config {
 		},
 		Server: ServerConfig{
 			Port: getEnv("PORT", "8080"),
+		},
+		Models: ModelsConfig{
+			Aggregator:     getEnv("MODEL_AGGREGATOR", "gemini-3.1-flash-lite-preview"),
+			Modeler:        getEnv("MODEL_MODELER", "gemini-3-pro-preview"),
+			Validator:      getEnv("MODEL_VALIDATOR", "gemini-3-pro-preview"),
+			Reviewer:       getEnv("MODEL_REVIEWER", "gemini-3-pro-preview"),
+			Tagger:         getEnv("MODEL_TAGGER", "gemini-3.1-flash-lite-preview"),
+			VisualReporter: getEnv("MODEL_REPORTER", "gemini-3-pro-preview"),
 		},
 	}
 }
