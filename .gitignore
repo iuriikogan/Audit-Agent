@@ -29,7 +29,7 @@ terraform.rc
 .env
 .tessl
 tessl.json
-
+/spec**
 # Reports
 *_report.txt
 *.csv

@@ -1,51 +1,27 @@
 steps:
-  # --- SERVER BUILD & DEPLOY ---
-  # Build Server Image (runs in parallel with worker build)
+  # --- SERVER BUILD & PUSH ---
   - name: 'gcr.io/cloud-builders/docker'
     id: 'Build Server'
-    waitFor: ['-'] # Start immediately
+    waitFor: ['-']
     args: ['build', '--build-arg', 'TARGET=server', '-t', '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/server:${_TAG}', '.']
   
-  # Push Server Image
   - name: 'gcr.io/cloud-builders/docker'
     id: 'Push Server'
     waitFor: ['Build Server']
     args: ['push', '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/server:${_TAG}']
 
-  # Deploy Server Service
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    id: 'Deploy Server'
-    waitFor: ['Push Server']
-    entrypoint: gcloud
-    args:
-      - 'run'
-      - 'deploy'
-      - 'cra-server'
-      - '--image'
-      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/server:${_TAG}'
-      - '--region'
-      - '${_REGION}'
-      - '--set-env-vars'
-      - 'PROJECT_ID=${PROJECT_ID},LOG_LEVEL=INFO,GCS_BUCKET_NAME=cra-data-${PROJECT_ID},ROLE=server,MODEL_AGGREGATOR=${_MODEL_AGGREGATOR},MODEL_MODELER=${_MODEL_MODELER},MODEL_VALIDATOR=${_MODEL_VALIDATOR},MODEL_REVIEWER=${_MODEL_REVIEWER},MODEL_TAGGER=${_MODEL_TAGGER},MODEL_REPORTER=${_MODEL_REPORTER}'
-      - '--set-secrets'
-      - 'GEMINI_API_KEY=GEMINI_API_KEY:latest'
-      - '--allow-unauthenticated'
-      - '--min-instances'
-      - '1'
-
-  # --- WORKER BUILD & DEPLOY ---
-  # Build Worker Image (runs in parallel with server build)
+  # --- WORKER BUILD & PUSH ---
   - name: 'gcr.io/cloud-builders/docker'
     id: 'Build Worker'
-    waitFor: ['-'] # Start immediately
+    waitFor: ['-']
     args: ['build', '--build-arg', 'TARGET=worker', '-t', '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/worker:${_TAG}', '.']
   
-  # Push Worker Image
   - name: 'gcr.io/cloud-builders/docker'
     id: 'Push Worker'
     waitFor: ['Build Worker']
     args: ['push', '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/worker:${_TAG}']
 
+  # --- DEPLOYMENT ---
   # Deploy Server Service
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'Deploy Server'
@@ -66,10 +42,10 @@ steps:
       - '--set-env-vars'
       - 'PROJECT_ID=${PROJECT_ID},ROLE=server,DATABASE_TYPE=CLOUD_SQL'
       - '--set-env-vars'
-      - 'DATABASE_URL=host=${_DB_IP} port=5432 user=cra_user password=change_me_in_production dbname=cra_db sslmode=require'
+      - 'DATABASE_URL=cra_user:change_me_in_production@tcp(${_DB_IP}:3306)/cra_db?parseTime=true'
       - '--set-secrets'
       - 'GEMINI_API_KEY=GEMINI_API_KEY:latest'
-      - '--allow-unauthenticated'
+      - '--no-allow-unauthenticated'
 
   # Deploy Worker Service
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -89,9 +65,9 @@ steps:
       - '--vpc-connector'
       - 'cra-connector'
       - '--set-env-vars'
-      - 'PROJECT_ID=${PROJECT_ID},LOG_LEVEL=INFO,GCS_BUCKET_NAME=cra-data-${PROJECT_ID},ROLE=worker'
+      - 'PROJECT_ID=${PROJECT_ID},ROLE=worker,DATABASE_TYPE=CLOUD_SQL'
       - '--set-env-vars'
-      - 'DATABASE_URL=host=${_DB_IP} port=5432 user=cra_user password=change_me_in_production dbname=cra_db sslmode=require'
+      - 'DATABASE_URL=cra_user:change_me_in_production@tcp(${_DB_IP}:3306)/cra_db?parseTime=true'
       - '--set-env-vars'
       - 'PUBSUB_TOPIC_SCAN_REQUESTS=scan-requests,PUBSUB_SUB_SCAN_REQUESTS=scan-requests-sub'
       - '--set-secrets'
@@ -102,10 +78,7 @@ substitutions:
   _REGION: europe-west1
   _REPO_NAME: multi-agent-cra
   _TAG: latest
-  _DB_IP: 10.0.0.3
-
-options:
-  machineType: 'E2_HIGHCPU_8'
+  _DB_IP: 10.0.0.3 # Dynamically replaced by build.sh
 
 images:
   - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/server:${_TAG}'
