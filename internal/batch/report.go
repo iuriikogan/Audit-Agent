@@ -1,3 +1,9 @@
+// Package batch provides report.go implementation.
+//
+// Rationale: This module is designed to encapsulate domain-specific logic,
+// ensuring strict separation of concerns within the multi-agent CRA architecture.
+// Terminology: CRA (Cyber Resilience Act), GCP (Google Cloud Platform), Agent (Autonomous AI actor).
+// Measurability: Ensures code maintainability and testability by isolating discrete workflow steps.
 package batch
 
 import (

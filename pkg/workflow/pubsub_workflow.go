@@ -1,3 +1,9 @@
+// Package workflow provides pubsub_workflow.go implementation.
+//
+// Rationale: This module is designed to encapsulate domain-specific logic,
+// ensuring strict separation of concerns within the multi-agent CRA architecture.
+// Terminology: CRA (Cyber Resilience Act), GCP (Google Cloud Platform), Agent (Autonomous AI actor).
+// Measurability: Ensures code maintainability and testability by isolating discrete workflow steps.
 package workflow
 
 import (
@@ -115,7 +121,11 @@ func (w *PubSubWorkflow) emitMonitoring(ctx context.Context, jobID, resourceName
 		"timestamp":     time.Now().Format(time.RFC3339),
 	}
 	data, _ := json.Marshal(event)
-	if err := w.client.Publish(ctx, w.monitoringTopic, data); err != nil {
+	
+	publishCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+
+	if err := w.client.Publish(publishCtx, w.monitoringTopic, data); err != nil {
 		slog.Error("Failed to publish monitoring event", "error", err)
 	}
 }
