@@ -53,8 +53,8 @@ if [[ "$DESTROY" == "1" ]]; then
   gcloud run services delete cra-dashboard --region="$REGION" --quiet || true
 
   echo "Deleting Pub/Sub subscriptions and topics..."
-  SUBS=("scan-requests-sub" "aggregator-tasks-sub" "modeler-tasks-sub" "validator-tasks-sub" "reviewer-tasks-sub" "tagger-tasks-sub" "monitoring-events-sub")
-  TOPICS=("scan-requests" "aggregator-tasks" "modeler-tasks" "validator-tasks" "reviewer-tasks" "tagger-tasks" "monitoring-events")
+  SUBS=("scan-requests-sub" "aggregator-tasks-sub" "modeler-tasks-sub" "validator-tasks-sub" "reviewer-tasks-sub" "tagger-tasks-sub" "reporter-tasks-sub" "monitoring-events-sub")
+  TOPICS=("scan-requests" "aggregator-tasks" "modeler-tasks" "validator-tasks" "reviewer-tasks" "tagger-tasks" "reporter-tasks" "monitoring-events")
   
   for SUB in "${SUBS[@]}"; do
     gcloud pubsub subscriptions delete "$SUB" --quiet || true
@@ -137,8 +137,8 @@ gcloud storage buckets add-iam-policy-binding "gs://${BUCKET_NAME}" \
   --quiet
 
 # --- 5. Setup Pub/Sub ---
-TOPICS=("scan-requests" "aggregator-tasks" "modeler-tasks" "validator-tasks" "reviewer-tasks" "tagger-tasks" "monitoring-events")
-SUBS=("scan-requests-sub" "aggregator-tasks-sub" "modeler-tasks-sub" "validator-tasks-sub" "reviewer-tasks-sub" "tagger-tasks-sub" "monitoring-events-sub")
+TOPICS=("scan-requests" "aggregator-tasks" "modeler-tasks" "validator-tasks" "reviewer-tasks" "tagger-tasks" "reporter-tasks" "monitoring-events")
+SUBS=("scan-requests-sub" "aggregator-tasks-sub" "modeler-tasks-sub" "validator-tasks-sub" "reviewer-tasks-sub" "tagger-tasks-sub" "reporter-tasks-sub" "monitoring-events-sub")
 
 for TOPIC in "${TOPICS[@]}"; do
   if ! gcloud pubsub topics describe "$TOPIC" &>/dev/null; then
@@ -244,10 +244,13 @@ for i in "${!SUBS[@]}"; do
     "validator-tasks") ENDPOINT_PATH="/pubsub/validator" ;;
     "reviewer-tasks") ENDPOINT_PATH="/pubsub/reviewer" ;;
     "tagger-tasks") ENDPOINT_PATH="/pubsub/tagger" ;;
+    "reporter-tasks") ENDPOINT_PATH="/pubsub/reporter" ;;
     "monitoring-events") 
        # Monitoring is broadcast to SSE via the server, worker doesn't consume it.
-       # The Server actually consumed this in the previous Pull model!
-       # We should not create a worker Push sub for monitoring.
+       if ! gcloud pubsub subscriptions describe "$SUB" &>/dev/null; then
+         echo "Creating Pub/Sub Pull subscription: $SUB attached to $TOPIC"
+         gcloud pubsub subscriptions create "$SUB" --topic="$TOPIC"
+       fi
        continue ;;
   esac
 

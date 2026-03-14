@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # --- Unified Server (API + Frontend) ---
   server:
@@ -19,12 +17,10 @@ services:
       - PUBSUB_EMULATOR_HOST=pubsub:8085
       - PUBSUB_TOPIC_SCAN_REQUESTS=scan-requests
       - PUBSUB_SUB_SCAN_REQUESTS=scan-requests-sub
-      - FIRESTORE_EMULATOR_HOST=firestore:8080
+      - DATABASE_TYPE=SQLITE_MEM
     depends_on:
       pubsub:
         condition: service_healthy
-      firestore:
-        condition: service_started
       setup-pubsub:
         condition: service_completed_successfully
 
@@ -44,13 +40,11 @@ services:
       - PUBSUB_EMULATOR_HOST=pubsub:8085
       - PUBSUB_TOPIC_SCAN_REQUESTS=scan-requests
       - PUBSUB_SUB_SCAN_REQUESTS=scan-requests-sub
-      - FIRESTORE_EMULATOR_HOST=firestore:8080
+      - DATABASE_TYPE=SQLITE_MEM
       - PORT=8080 # For health checks
     depends_on:
       pubsub:
         condition: service_healthy
-      firestore:
-        condition: service_started
       setup-pubsub:
         condition: service_completed_successfully
 
@@ -58,7 +52,7 @@ services:
 
   pubsub:
     image: gcr.io/google.com/cloudsdktool/cloud-sdk:emulators
-    command: gcloud beta emulators pubsub start --project=test-project --host-port=0.0.0.0:8085
+    command: gcloud alpha emulators pubsub start --project=test-project --host-port=0.0.0.0:8085
     ports:
       - "8085:8085"
     healthcheck:
@@ -71,26 +65,20 @@ services:
     image: gcr.io/google.com/cloudsdktool/cloud-sdk:emulators
     environment:
       - PUBSUB_EMULATOR_HOST=pubsub:8085
-    command: >
-      bash -c "echo 'Waiting for Pub/Sub emulator...' &&
-      until curl -s http://pubsub:8085/; do sleep 2; done &&
-      echo 'Creating topic and subscription...' &&
-      curl -s -X PUT http://pubsub:8085/v1/projects/test-project/topics/scan-requests &&
-      curl -s -X PUT http://pubsub:8085/v1/projects/test-project/subscriptions/scan-requests-sub \
-        -H 'Content-Type: application/json' \
-        -d '{"topic": "projects/test-project/topics/scan-requests"}' &&
-      echo 'Pub/Sub resources created.'"
+    command:
+      - bash
+      - -c
+      - |
+        echo 'Waiting for Pub/Sub emulator...'
+        until curl -s http://pubsub:8085/; do sleep 2; done
+        echo 'Creating topic and subscription...'
+        curl -s -X PUT http://pubsub:8085/v1/projects/test-project/topics/scan-requests
+        curl -s -X PUT http://pubsub:8085/v1/projects/test-project/subscriptions/scan-requests-sub \
+          -H 'Content-Type: application/json' \
+          -d '{"topic": "projects/test-project/topics/scan-requests"}'
+        echo 'Pub/Sub resources created.'
     depends_on:
       pubsub:
         condition: service_healthy
 
-  firestore:
-    image: gcr.io/google.com/cloudsdktool/cloud-sdk:emulators
-    command: gcloud beta emulators firestore start --project=test-project --host-port=0.0.0.0:8080
-    ports:
-      - "8081:8080" # Map to 8081 locally to avoid conflict with server on 8080
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
-      interval: 5s
-      timeout: 10s
-      retries: 5
+
