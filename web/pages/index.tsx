@@ -1,3 +1,9 @@
+/**
+ * Rationale: Implements the UI/UX or domain logic for the Next.js frontend, adhering to
+ * React functional component paradigms and Material UI design specifications.
+ * Terminology: CRA Dashboard, SSR (Server-Side Rendering), Component.
+ * Measurability: Enhances user interaction by providing responsive, accessible interfaces.
+ */
 import Head from 'next/head'
 import { useState, SyntheticEvent } from 'react'
 import { Container, Typography, Box, Tabs, Tab } from '@mui/material'

@@ -1,3 +1,9 @@
+/**
+ * Rationale: Implements the UI/UX or domain logic for the Next.js frontend, adhering to
+ * React functional component paradigms and Material UI design specifications.
+ * Terminology: CRA Dashboard, SSR (Server-Side Rendering), Component.
+ * Measurability: Enhances user interaction by providing responsive, accessible interfaces.
+ */
 import { useState, useEffect, useRef } from 'react';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { Doughnut } from 'react-chartjs-2';
