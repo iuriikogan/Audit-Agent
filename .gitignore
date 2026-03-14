@@ -23,6 +23,7 @@ override.tf.json
 # Terraform CLI configuration
 .terraformrc
 terraform.rc
+plan.json
 
 # Project Specific
 .vscode
