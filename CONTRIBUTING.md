@@ -1,4 +1,4 @@
-# Contributing to Multi-Agent CRA System
+# Contributing to Multi-Agent Compliance System (CRA & DORA)
 
 Thank you for your interest in contributing! We welcome contributions from the community to help improve the security and resilience of our systems.
 

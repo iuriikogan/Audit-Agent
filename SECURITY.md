@@ -6,7 +6,7 @@ Best Efforts Support on All Versions
 
 ## Reporting a Vulnerability
 
-We take the security of our software seriously. If you believe you have found a security vulnerability in the Multi-Agent CRA System, please report it to us as described below.
+We take the security of our software seriously. If you believe you have found a security vulnerability in the Multi-Agent Compliance System, please report it to us as described below.
 
 **Please do not report security vulnerabilities through public GitHub issues.**
 

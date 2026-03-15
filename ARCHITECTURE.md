@@ -1,6 +1,6 @@
 # System Architecture & Security Design
 
-This document describes the technical architecture of the Multi-Agent Cyber Resilience Act (CRA) Compliance System.
+This document describes the technical architecture of the Multi-Agent Regulatory Compliance System (supporting CRA and DORA).
 
 ## Deployment Options
 
@@ -64,7 +64,7 @@ graph TD
     PubSub_Monitoring -->|Consume| Server
     
     WorkerFleet <-->|Agent Reasoning| Gemini[Google Gemini API]
-    WorkerFleet -->|Embedded Context| KB[(CRA Knowledge Base: Vector Graph)]
+    WorkerFleet -->|Embedded Context| KB[(Regulatory KB: CRA & DORA)]
     WorkerFleet <-->|Discover/Tag| GCP_API[GCP Asset Inventory API]
 
     %% Observability
@@ -115,7 +115,7 @@ The compliance process is a multi-stage, event-driven pipeline where autonomous 
 
 ```mermaid
 sequenceDiagram
-    participant UI as CRA Dashboard
+    participant UI as Compliance Dashboard
     participant API as API Server
     participant PS as Pub/Sub
     participant Agg as Agent: Aggregator
@@ -126,8 +126,8 @@ sequenceDiagram
     participant DB as Cloud SQL
     participant GCP as GCP APIs
 
-    UI->>API: POST /api/scan {scope: "org/123"}
-    API->>DB: CreateScan(job_id, "running")
+    UI->>API: POST /api/scan {scope: "org/123", regulation: "DORA"}
+    API->>DB: CreateScan(job_id, scope, regulation)
     API->>PS: Publish(scan-requests, job_id)
     
     PS-->>Agg: Consume(scan-requests)
@@ -138,13 +138,13 @@ sequenceDiagram
     end
     
     PS-->>Mod: Consume(aggregator-tasks)
-    Mod->>Mod: Gemini Reasoning: Map asset to CRA framework
-    Mod->>PS: Publish(modeler-tasks, CRA_Model)
+    Mod->>Mod: Gemini Reasoning: Map asset to regulatory framework
+    Mod->>PS: Publish(modeler-tasks, Model)
     
     PS-->>Val: Consume(modeler-tasks)
     Val->>Val: Gemini Reasoning: Evaluate compliance rules
-    Val->>KB: Semantic Search (search_cra_knowledge)
-    KB-->>Val: Relevant CRA Excerpts
+    Val->>KB: Semantic Search (search_knowledge_base)
+    KB-->>Val: Relevant Regulatory Excerpts
     Val->>DB: AddFinding(job_id, Finding)
     Val->>PS: Publish(validator-tasks, Validation_Result)
     
@@ -153,7 +153,7 @@ sequenceDiagram
     Rev->>PS: Publish(reviewer-tasks, Reviewed_Result)
     
     PS-->>Tag: Consume(reviewer-tasks)
-    Tag->>GCP: Apply compliance tags/labels
+    Tag->>GCP: Apply compliance tags/labels (e.g., dora_status=compliant)
     
     Note over Agg,Tag: All agents continuously publish telemetry to 'monitoring-events'
     PS-->>API: Consume(monitoring-events)
@@ -181,7 +181,7 @@ sequenceDiagram
 
 The system abstracts state management through a `Store` interface, allowing flexibility based on deployment needs:
 
-*   **Cloud SQL (PostgreSQL):** Used for production. Provides robust, concurrent transaction support and complex querying capabilities for the CRA Dashboard. Database connections are secured via SSL and private IP.
+*   **Cloud SQL (PostgreSQL):** Used for production. Provides robust, concurrent transaction support and complex querying capabilities for the Compliance Dashboard. Database connections are secured via SSL and private IP.
 *   **SQLite (In-Memory):** Used for local development and CI/CD pipelines. It provides a zero-dependency, ephemeral database that perfectly mimics the relational structure of Cloud SQL.
 
 The frontend dashboard queries this state via the `/api/findings` endpoint, pulling historical compliance data independently of the real-time Pub/Sub pipeline.

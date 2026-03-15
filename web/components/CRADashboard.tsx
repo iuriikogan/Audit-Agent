@@ -29,6 +29,8 @@ ChartJS.register(ArcElement, Tooltip, Legend);
 
 // Finding represents a single conformity assessment result for a target PDE.
 interface Finding {
+  resource_name: string; // Full GCP resource path
+  status: string;        // Conformity state (e.g., Conformant, Non-Conformant)
   details: string;       // Detailed description of the assessment result
   regulation: string;    // Regulation framework (CRA or DORA)
 }

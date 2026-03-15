@@ -1,10 +1,10 @@
-# Multi-Agent CRA Security Platform Gemini Agent Configuration
+# Multi-Agent Compliance Security Platform (CRA & DORA) Gemini Agent Configuration
 
 This document provides instructions and context for interacting with the Multi-Agent CRA Security Platform using the Gemini CLI.
 
 ## Project Overview
 
-This is a scalable, event-driven multi-agent system designed to assess Google Cloud infrastructure against the EU Cyber Resilience Act (CRA). The system is built with a Go backend and a Next.js frontend. It uses Google Cloud services like Pub/Sub for its event-driven architecture and can be configured to use either Cloud SQL (PostgreSQL) for production or an in-memory SQLite database for local development.
+This is a scalable, event-driven multi-agent system designed to assess Google Cloud infrastructure against the EU Cyber Resilience Act (CRA) and the Digital Operational Resilience Act (DORA). The system is built with a Go backend and a Next.js frontend. It uses Google Cloud services like Pub/Sub for its event-driven architecture and can be configured to use either Cloud SQL (PostgreSQL) for production or an in-memory SQLite database for local development.
 
 The project is structured into several Go packages and a Next.js web application. The Go backend consists of three main entry points: a server, a worker, and a batch process. The server handles API requests and serves the frontend, the worker processes background tasks from a Pub/Sub queue, and the batch process is for batch execution. The Next.js application provides a real-time dashboard for monitoring and interacting with the system.
 
