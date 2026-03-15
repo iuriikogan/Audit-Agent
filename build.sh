@@ -145,7 +145,7 @@ if ! gcloud sql instances describe compliance-mysql-instance --project=$PROJECT_
       --database-version=MYSQL_8_0 \
       --tier=db-f1-micro \
       --region=$REGION \
-      --network=cra-vpc \
+      --network=compliance-vpc \
       --no-assign-ip \
       --project=$PROJECT_ID
 fi
