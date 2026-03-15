@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/iuriikogan/multi-agent-cra/pkg/config"
-	"github.com/iuriikogan/multi-agent-cra/pkg/queue"
-	"github.com/iuriikogan/multi-agent-cra/pkg/store"
+	"github.com/iuriikogan/Audit-Agent/pkg/config"
+	"github.com/iuriikogan/Audit-Agent/pkg/queue"
+	"github.com/iuriikogan/Audit-Agent/pkg/store"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
