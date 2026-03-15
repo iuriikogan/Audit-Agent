@@ -1,6 +1,7 @@
 import Head from 'next/head'
 import { useState, SyntheticEvent } from 'react'
-import { Container, Typography, Box, Tabs, Tab } from '@mui/material'
+import { Container, Typography, Box, Tabs, Tab, ThemeProvider, CssBaseline } from '@mui/material'
+import theme from '../styles/theme'
 import Dashboard from '../components/Dashboard'
 import CRADashboard from '../components/CRADashboard'
 
@@ -24,7 +25,7 @@ function CustomTabPanel(props: TabPanelProps) {
       {...other}
     >
       {value === index && (
-        <Box sx={{ p: 3 }}>
+        <Box sx={{ pt: 3 }}>
           {children}
         </Box>
       )}
@@ -49,36 +50,47 @@ export default function Home() {
   };
 
   return (
-    <>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
       <Head>
-        <title>CRA Compliance Dashboard</title>
-        <meta name="description" content="Cyber Resilience Act Compliance Dashboard" />
+        <title>CRA Compliance System</title>
+        <meta name="description" content="Cyber Resilience Act Compliance Assessment Dashboard" />
       </Head>
-      <main>
-        <Container maxWidth="xl">
-          <Box sx={{ my: 4 }}>
-            <Typography variant="h4" component="h1" gutterBottom>
+      <Box component="main" sx={{ minHeight: '100vh', backgroundColor: 'background.default' }}>
+        <Container maxWidth="xl" sx={{ py: 6 }}>
+          <Box sx={{ mb: 6 }}>
+            <Typography variant="h4" component="h1" gutterBottom sx={{ mb: 1 }}>
               CRA Compliance System
             </Typography>
-            
-            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-              <Tabs value={value} onChange={handleChange} aria-label="cra dashboard tabs">
-                <Tab label="CRA Dashboard" {...a11yProps(0)} />
-                <Tab label="Live Agent Logs" {...a11yProps(1)} />
-              </Tabs>
-            </Box>
-            
-            <CustomTabPanel value={value} index={0}>
-              <CRADashboard />
-            </CustomTabPanel>
-            
-            <CustomTabPanel value={value} index={1}>
-              <Dashboard />
-            </CustomTabPanel>
-
+            <Typography variant="subtitle1">
+              Automated Cyber Resilience Act (CRA) Conformity Assessment
+            </Typography>
           </Box>
+
+          <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
+            <Tabs
+              value={value}
+              onChange={handleChange}
+              aria-label="cra dashboard tabs"
+              textColor="primary"
+              indicatorColor="primary"
+            >
+              <Tab label="Compliance Dashboard" {...a11yProps(0)} />
+              <Tab label="Live Agent Logs" {...a11yProps(1)} />
+            </Tabs>
+          </Box>
+
+          <CustomTabPanel value={value} index={0}>
+            <CRADashboard />
+          </CustomTabPanel>
+
+          <CustomTabPanel value={value} index={1}>
+            <Dashboard />
+          </CustomTabPanel>
+
         </Container>
-      </main>
-    </>
+      </Box>
+    </ThemeProvider>
   )
 }
+

@@ -17,50 +17,24 @@ import {
   InputLabel,
   Button,
   CircularProgress,
-  SelectChangeEvent
+  SelectChangeEvent,
+  Stack
 } from '@mui/material';
 import ShareIcon from '@mui/icons-material/Share';
 import DownloadIcon from '@mui/icons-material/Download';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { Doughnut } from 'react-chartjs-2';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
-// Finding represents a single compliance result for a GCP resource.
+// Finding represents a single conformity assessment result for a target PDE.
 interface Finding {
   resource_name: string; // Full GCP resource path
-  status: string;        // Compliance state (e.g., Compliant, Non-Compliant)
+  status: string;        // Conformity state (e.g., Conformant, Non-Conformant)
   details: string;       // Detailed description of the assessment result
 }
 
-const theme = createTheme({
-  palette: {
-    primary: { main: '#6366f1' },
-    background: { default: '#f8fafc', paper: '#ffffff' },
-  },
-  typography: {
-    fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
-  },
-  shape: { borderRadius: 16 },
-  components: {
-    MuiPaper: {
-      styleOverrides: {
-        root: {
-          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
-          border: '1px solid #e2e8f0',
-        },
-      },
-    },
-    MuiTableCell: {
-      styleOverrides: {
-        head: { fontWeight: 600, backgroundColor: '#f8fafc', color: '#475569' },
-      },
-    },
-  },
-});
-
-// CRADashboard provides the main UI for visualizing and filtering compliance findings.
+// CRADashboard provides the main UI for visualizing and filtering conformity findings.
 export default function CRADashboard() {
   const [findings, setFindings] = useState<Finding[]>([]);
   const [loading, setLoading] = useState(true);
@@ -155,21 +129,21 @@ export default function CRADashboard() {
 
   const compliantCount = filteredFindings.filter(f => {
     const s = f.status.toLowerCase();
-    return s === 'compliant' || s === 'true' || s === 'approved';
+    return s === 'compliant' || s === 'true' || s === 'approved' || s === 'conformant';
   }).length;
   const nonCompliantCount = filteredFindings.filter(f => {
     const s = f.status.toLowerCase();
-    return s === 'non-compliant' || s === 'false' || s === 'failed' || s === 'rejected';
+    return s === 'non-compliant' || s === 'false' || s === 'failed' || s === 'rejected' || s === 'non-conformant';
   }).length;
   const otherCount = filteredFindings.length - compliantCount - nonCompliantCount;
 
   const chartData = {
-    labels: ['Compliant', 'Non-Compliant', 'Other'],
+    labels: ['Conformant', 'Non-Conformant', 'Other'],
     datasets: [
       {
         data: [compliantCount, nonCompliantCount, otherCount],
-        backgroundColor: ['rgba(75, 192, 192, 0.6)', 'rgba(255, 99, 132, 0.6)', 'rgba(201, 203, 207, 0.6)'],
-        borderColor: ['rgba(75, 192, 192, 1)', 'rgba(255, 99, 132, 1)', 'rgba(201, 203, 207, 1)'],
+        backgroundColor: ['#34a85399', '#d9302599', '#dadce099'],
+        borderColor: ['#34a853', '#d93025', '#dadce0'],
         borderWidth: 1,
       },
     ],
@@ -183,7 +157,7 @@ export default function CRADashboard() {
 
   // handleExportCSV generates and initiates a CSV download of the filtered results.
   const handleExportCSV = () => {
-    const headers = ['Resource Name', 'Status', 'Details'];
+    const headers = ['Target PDE', 'Conformity Status', 'Assessment Details'];
     const csvContent = [
       headers.join(','),
       ...filteredFindings.map(f => `"${f.resource_name}","${f.status}","${f.details.replace(/"/g, '""')}"`)].join('\n');
@@ -199,51 +173,63 @@ export default function CRADashboard() {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 10 }}>
         <CircularProgress />
       </Box>
     );
   }
 
   return (
-    <ThemeProvider theme={theme}>
-    <Box sx={{ p: 3 }}>
-      <Grid container spacing={3}>
+    <Box>
+      <Grid container spacing={4}>
         <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2, textAlign: 'center' }}>
-            <Typography variant="h6">Compliance Overview</Typography>
-            <Box sx={{ mt: 2, height: 200, display: 'flex', justifyContent: 'center' }}>
+          <Paper sx={{ p: 4, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <Typography variant="h6" gutterBottom>Compliance Overview</Typography>
+            <Box sx={{ mt: 2, height: 240, width: '100%', display: 'flex', justifyContent: 'center' }}>
               <Doughnut data={chartData} options={{ maintainAspectRatio: false }} />
             </Box>
+            <Stack direction="row" spacing={2} sx={{ mt: 3, width: '100%', justifyContent: 'center' }}>
+              <Box sx={{ textAlign: 'center' }}>
+                <Typography variant="h5" color="secondary.main">{compliantCount}</Typography>
+                <Typography variant="caption" color="text.secondary">Pass</Typography>
+              </Box>
+              <Box sx={{ textAlign: 'center' }}>
+                <Typography variant="h5" color="error.main">{nonCompliantCount}</Typography>
+                <Typography variant="caption" color="text.secondary">Fail</Typography>
+              </Box>
+            </Stack>
           </Paper>
         </Grid>
         
         <Grid item xs={12} md={8}>
-          <Paper sx={{ p: 2 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-              <Typography variant="h6">Findings</Typography>
+          <Paper sx={{ p: 4 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 4 }}>
               <Box>
-                <Button startIcon={<ShareIcon />} onClick={handleShare} sx={{ mr: 1 }}>Share</Button>
-                <Button startIcon={<DownloadIcon />} onClick={handleExportCSV}>Export CSV</Button>
+                <Typography variant="h6">Vulnerability & Conformity Findings</Typography>
+                <Typography variant="body2" color="text.secondary">Detailed assessment results per resource</Typography>
+              </Box>
+              <Box>
+                <Button variant="outlined" startIcon={<ShareIcon />} onClick={handleShare} sx={{ mr: 1 }} size="small">Share</Button>
+                <Button variant="outlined" startIcon={<DownloadIcon />} onClick={handleExportCSV} size="small">Export</Button>
               </Box>
             </Box>
             
-            <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
-              <FormControl size="small" sx={{ minWidth: 120 }}>
+            <Box sx={{ display: 'flex', gap: 2, mb: 4 }}>
+              <FormControl size="small" sx={{ minWidth: 160 }}>
                 <InputLabel>Organization</InputLabel>
                 <Select value={orgFilter} label="Organization" onChange={(e: SelectChangeEvent) => setOrgFilter(e.target.value)}>
                   {orgs.map(o => <MenuItem key={o} value={o}>{o}</MenuItem>)}
                 </Select>
               </FormControl>
               
-              <FormControl size="small" sx={{ minWidth: 120 }}>
+              <FormControl size="small" sx={{ minWidth: 160 }}>
                 <InputLabel>Folder</InputLabel>
                 <Select value={folderFilter} label="Folder" onChange={(e: SelectChangeEvent) => setFolderFilter(e.target.value)}>
                   {folders.map(f => <MenuItem key={f} value={f}>{f}</MenuItem>)}
                 </Select>
               </FormControl>
 
-              <FormControl size="small" sx={{ minWidth: 120 }}>
+              <FormControl size="small" sx={{ minWidth: 160 }}>
                 <InputLabel>Project</InputLabel>
                 <Select value={projectFilter} label="Project" onChange={(e: SelectChangeEvent) => setProjectFilter(e.target.value)}>
                   {projects.map(p => <MenuItem key={p} value={p}>{p}</MenuItem>)}
@@ -252,32 +238,34 @@ export default function CRADashboard() {
             </Box>
 
             <TableContainer>
-              <Table size="small">
+              <Table size="medium">
                 <TableHead>
                   <TableRow>
                     <TableCell>Resource</TableCell>
-                    <TableCell>Status</TableCell>
+                    <TableCell align="center">Status</TableCell>
                     <TableCell>Details</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {filteredFindings.map((f, i) => (
-                    <TableRow key={i}>
-                      <TableCell>{f.resource_name}</TableCell>
-                      <TableCell>
+                    <TableRow key={i} hover>
+                      <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>{f.resource_name.split('/').pop()}</TableCell>
+                      <TableCell align="center">
                         <Chip 
                           label={f.status} 
-                          color={(f.status.toLowerCase() === 'compliant' || f.status.toLowerCase() === 'true' || f.status.toLowerCase() === 'approved') ? 'success' :
-                            (f.status.toLowerCase() === 'non-compliant' || f.status.toLowerCase() === 'false' || f.status.toLowerCase() === 'failed' || f.status.toLowerCase() === 'rejected') ? 'error' : 'default'} 
-                          size="small" 
+                          variant="outlined"
+                          color={(f.status.toLowerCase() === 'compliant' || f.status.toLowerCase() === 'true' || f.status.toLowerCase() === 'approved' || f.status.toLowerCase() === 'conformant') ? 'success' :
+                            (f.status.toLowerCase() === 'non-compliant' || f.status.toLowerCase() === 'false' || f.status.toLowerCase() === 'failed' || f.status.toLowerCase() === 'rejected' || f.status.toLowerCase() === 'non-conformant') ? 'error' : 'default'}
+                          size="small"
+                          sx={{ fontWeight: 600 }}
                         />
                       </TableCell>
-                      <TableCell>{f.details}</TableCell>
+                      <TableCell sx={{ fontSize: '0.9rem' }}>{f.details}</TableCell>
                     </TableRow>
                   ))}
                   {filteredFindings.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={3} align="center">No findings match the selected filters.</TableCell>
+                      <TableCell colSpan={3} align="center" sx={{ py: 4, color: 'text.secondary' }}>No findings match the selected filters.</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
@@ -287,6 +275,5 @@ export default function CRADashboard() {
         </Grid>
       </Grid>
     </Box>
-    </ThemeProvider>
   );
 }

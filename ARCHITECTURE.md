@@ -64,10 +64,11 @@ graph TD
     PubSub_Monitoring -->|Consume| Server
     
     WorkerFleet <-->|Agent Reasoning| Gemini[Google Gemini API]
+    WorkerFleet -->|Embedded Context| KB[(CRA Knowledge Base: Vector Graph)]
     WorkerFleet <-->|Discover/Tag| GCP_API[GCP Asset Inventory API]
 
     classDef gcp fill:#e8f0fe,stroke:#1a73e8,stroke-width:2px;
-    class Server,WorkerFleet,CloudArmor,PubSub_Scan,PubSub_Internal,PubSub_Monitoring,DB,Gemini,GCP_API gcp;
+    class Server,WorkerFleet,CloudArmor,PubSub_Scan,PubSub_Internal,PubSub_Monitoring,DB,Gemini,GCP_API,KB gcp;
 ```
 
 ## Agent Pipeline & Data Flow
@@ -104,6 +105,8 @@ sequenceDiagram
     
     PS-->>Val: Consume(modeler-tasks)
     Val->>Val: Gemini Reasoning: Evaluate compliance rules
+    Val->>KB: Semantic Search (search_cra_knowledge)
+    KB-->>Val: Relevant CRA Excerpts
     Val->>DB: AddFinding(job_id, Finding)
     Val->>PS: Publish(validator-tasks, Validation_Result)
     

@@ -9,6 +9,9 @@ import (
 	"os/signal"
 	"syscall"
 
+	"embed"
+	"io/fs"
+
 	"github.com/iuriikogan/multi-agent-cra/internal/server"
 	"github.com/iuriikogan/multi-agent-cra/internal/worker"
 	"github.com/iuriikogan/multi-agent-cra/pkg/config"
@@ -16,6 +19,9 @@ import (
 	"github.com/iuriikogan/multi-agent-cra/pkg/queue"
 	"github.com/iuriikogan/multi-agent-cra/pkg/store"
 )
+
+//go:embed out
+var staticAssets embed.FS
 
 func main() {
 	cfg := config.Load()
@@ -35,7 +41,9 @@ func main() {
 		slog.Error("Failed to initialize Pub/Sub client", "error", err)
 		os.Exit(1)
 	}
-	defer pubsubClient.Close()
+	defer func() {
+		_ = pubsubClient.Close()
+	}()
 
 	var storeClient store.Store
 	switch cfg.DatabaseType {
@@ -58,7 +66,11 @@ func main() {
 		slog.Error("Failed to init Store", "error", err)
 		os.Exit(1)
 	}
-	defer storeClient.Close()
+	defer func() {
+		if storeClient != nil {
+			_ = storeClient.Close()
+		}
+	}()
 
 	errChan := make(chan error, 2)
 
@@ -78,7 +90,15 @@ func main() {
 
 		go func() {
 			if role == "all" {
-				muxWrapper := server.NewAppHandler(ctx, cfg, pubsubClient, storeClient, hub)
+				var muxWrapper http.Handler
+				subFS, err := fs.Sub(staticAssets, "out")
+				if err != nil {
+					// Fallback to local directory for development if embed fails or is empty
+					slog.Warn("Failed to use embedded assets, falling back to disk", "error", err)
+					muxWrapper = server.NewAppHandler(ctx, cfg, pubsubClient, storeClient, hub, http.Dir("web/out"))
+				} else {
+					muxWrapper = server.NewAppHandler(ctx, cfg, pubsubClient, storeClient, hub, http.FS(subFS))
+				}
 
 				// Re-create the inner ServeMux for the worker routes if needed.
 				// Actually, since we wrapped it in corsMiddleware, it's not a ServeMux directly.
@@ -87,7 +107,7 @@ func main() {
 				// Let's just create a new mux that wraps everything
 				mainMux := http.NewServeMux()
 
-				_, err := worker.RegisterRoutes(ctx, mainMux, cfg, pubsubClient, storeClient)
+				_, err = worker.RegisterRoutes(ctx, mainMux, cfg, pubsubClient, storeClient)
 				if err != nil {
 					errChan <- fmt.Errorf("worker register error: %w", err)
 					return
@@ -103,14 +123,22 @@ func main() {
 				srv := &http.Server{Addr: ":" + port, Handler: mainMux}
 				go func() {
 					<-ctx.Done()
-					srv.Shutdown(context.Background())
+					_ = srv.Shutdown(context.Background())
 				}()
 				slog.Info("Server & Worker listening", "port", port)
 				if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 					errChan <- fmt.Errorf("server failed: %w", err)
 				}
 			} else {
-				if err := server.Start(ctx, cfg, pubsubClient, storeClient, hub); err != nil {
+				subFS, err := fs.Sub(staticAssets, "out")
+				var staticFS http.FileSystem
+				if err != nil {
+					slog.Warn("Failed to use embedded assets, falling back to disk", "error", err)
+					staticFS = http.Dir("web/out")
+				} else {
+					staticFS = http.FS(subFS)
+				}
+				if err := server.Start(ctx, cfg, pubsubClient, storeClient, hub, staticFS); err != nil {
 					errChan <- fmt.Errorf("server error: %w", err)
 				}
 			}

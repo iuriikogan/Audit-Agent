@@ -119,14 +119,14 @@ var RegulatoryCheckerTools = []*genai.Tool{
 	{
 		FunctionDeclarations: []*genai.FunctionDeclaration{
 			{
-				Name:        "read_cra_regulation_text",
-				Description: "Reads specific articles from the EU Cyber Resilience Act.",
+				Name:        "search_cra_knowledge",
+				Description: "Performs a semantic search against the EU Cyber Resilience Act (CRA) implementation guide to find relevant articles, requirements, and best practices.",
 				Parameters: &genai.Schema{
 					Type: genai.TypeObject,
 					Properties: map[string]*genai.Schema{
-						"article_number": {Type: genai.TypeString},
+						"query": {Type: genai.TypeString, Description: "The search query or concept to look up in the CRA documentation."},
 					},
-					Required: []string{"article_number"},
+					Required: []string{"query"},
 				},
 			},
 		},

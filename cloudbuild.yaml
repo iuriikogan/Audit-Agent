@@ -1,31 +1,78 @@
 steps:
-  # --- SERVER BUILD & PUSH ---
-  - name: 'gcr.io/cloud-builders/docker'
-    id: 'Build Server'
+  # --- PREPARATION ---
+  # Ensure cache bucket exists (swallow error if already exists)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'Prepare Cache'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        gsutil mb -l ${_REGION} gs://${PROJECT_ID}-build-cache || true
     waitFor: ['-']
-    args: ['build', '--build-arg', 'TARGET=server', '-t', '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/server:${_TAG}', '.']
-  
-  - name: 'gcr.io/cloud-builders/docker'
-    id: 'Push Server'
-    waitFor: ['Build Server']
-    args: ['push', '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/server:${_TAG}']
 
-  # --- WORKER BUILD & PUSH ---
-  - name: 'gcr.io/cloud-builders/docker'
+  # --- FRONTEND BUILD ---
+  # Fetch node_modules from cache
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'Fetch Frontend Cache'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        gsutil cp gs://${PROJECT_ID}-build-cache/multi-agent-cra/web-node-modules.tar.gz . || echo "No cache found"
+        if [ -f web-node-modules.tar.gz ]; then tar -xzf web-node-modules.tar.gz; fi
+    waitFor: ['Prepare Cache']
+
+  - name: 'node:22-alpine'
+    id: 'Install Frontend'
+    entrypoint: 'npm'
+    args: ['install']
+    dir: 'web'
+    waitFor: ['Fetch Frontend Cache']
+
+  - name: 'node:22-alpine'
+    id: 'Build Frontend'
+
+    entrypoint: 'npm'
+    args: ['run', 'build']
+    dir: 'web'
+    waitFor: ['Install Frontend']
+
+  # Save node_modules to cache in parallel with the rest of the build
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'Save Frontend Cache'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        tar -czf web-node-modules.tar.gz web/node_modules
+        gsutil cp web-node-modules.tar.gz gs://${PROJECT_ID}-build-cache/multi-agent-cra/web-node-modules.tar.gz
+    waitFor: ['Install Frontend']
+
+  # --- DOCKER BUILDS (Using Kaniko for optimized caching) ---
+  - name: 'gcr.io/kaniko-project/executor:latest'
+    id: 'Build Server'
+    args:
+      - '--destination=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/server:${_TAG}'
+      - '--cache=true'
+      - '--cache-ttl=24h'
+      - '--build-arg=TARGET=server'
+      - '--context=dir:///workspace'
+    waitFor: ['Build Frontend']
+
+  - name: 'gcr.io/kaniko-project/executor:latest'
     id: 'Build Worker'
-    waitFor: ['-']
-    args: ['build', '--build-arg', 'TARGET=worker', '-t', '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/worker:${_TAG}', '.']
-  
-  - name: 'gcr.io/cloud-builders/docker'
-    id: 'Push Worker'
-    waitFor: ['Build Worker']
-    args: ['push', '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/worker:${_TAG}']
+    args:
+      - '--destination=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/worker:${_TAG}'
+      - '--cache=true'
+      - '--cache-ttl=24h'
+      - '--build-arg=TARGET=worker'
+      - '--context=dir:///workspace'
+    waitFor: ['Build Frontend']
 
   # --- DEPLOYMENT ---
-  # Deploy Server Service
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'Deploy Server'
-    waitFor: ['Push Server']
+    waitFor: ['Build Server']
     entrypoint: gcloud
     args:
       - 'run'
@@ -51,10 +98,9 @@ steps:
       - 'GEMINI_API_KEY=GEMINI_API_KEY:latest'
       - '--no-allow-unauthenticated'
 
-  # Deploy Worker Service
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'Deploy Worker'
-    waitFor: ['Push Worker']
+    waitFor: ['Build Worker']
     entrypoint: gcloud
     args:
       - 'run'
@@ -84,7 +130,7 @@ substitutions:
   _REGION: europe-west1
   _REPO_NAME: multi-agent-cra
   _TAG: latest
-  _DB_IP: 10.0.0.3 # Dynamically replaced by build.sh
+  _DB_IP: 10.0.0.3
 
 images:
   - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/server:${_TAG}'

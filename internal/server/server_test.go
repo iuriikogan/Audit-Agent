@@ -132,7 +132,7 @@ func setupTestEnv(t *testing.T) (http.Handler, sqlmock.Sqlmock, *pstest.Server, 
 		},
 	}
 	hub := NewHub()
-	handler := NewAppHandler(ctx, cfg, queueClient, storeClient, hub)
+	handler := NewAppHandler(ctx, cfg, queueClient, storeClient, hub, http.Dir("."))
 	return handler, sqlMock, srv, db
 }
 

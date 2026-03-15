@@ -7,6 +7,7 @@ A scalable, event-driven multi-agent system designed to assess Google Cloud infr
 ## Key Features
 
 *   Autonomous Agents: Specialized AI agents for Discovery (Aggregator), Modeling, Validation, Review, and Tagging.
+*   Embedded CRA Knowledge Base: A vector-searchable knowledge base of the EU Cyber Resilience Act, integrated into the agent workflow for high-fidelity compliance reasoning.
 *   Real-time Dashboard: A Next.js frontend embedded in the Go binary featuring live Server-Sent Events (SSE) log streaming and interactive compliance charts.
 *   Event-Driven: Decoupled architecture using Google Cloud Pub/Sub for resilient, multi-stage agent pipelines.
 *   Flexible Storage: Choose between robust Cloud SQL (PostgreSQL) for production or lightweight in-memory SQLite for zero-dependency local development.
@@ -45,7 +46,9 @@ The system uses a strictly decoupled producer-consumer model:
 │   ├── queue/       # Pub/Sub client implementations
 │   ├── store/       # Cloud SQL and SQLite implementations
 │   ├── tools/       # GCP SDK and LLM tool definitions
+│   ├── knowledge/   # Vector search and embedded CRA knowledge base
 │   └── workflow/    # Pub/Sub pipeline orchestrator
+
 ├── web/             # Next.js Frontend Dashboard (compiled into Go binary)
 └── terraform/       # IaC definitions for GCP deployment
 ```

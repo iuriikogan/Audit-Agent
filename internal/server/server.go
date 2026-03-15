@@ -53,8 +53,8 @@ func (h *Hub) Run(ctx context.Context) {
 }
 
 // NewAppHandler initializes the server's HTTP mux with API and static file routes.
-// It takes a context, config, pubsub client, database store, and hub instance.
-func NewAppHandler(ctx context.Context, cfg *config.Config, pubsubClient *queue.Client, db store.Store, hub *Hub) http.Handler {
+// It takes a context, config, pubsub client, database store, hub instance, and static filesystem.
+func NewAppHandler(ctx context.Context, cfg *config.Config, pubsubClient *queue.Client, db store.Store, hub *Hub, staticFS http.FileSystem) http.Handler {
 	apiMux := http.NewServeMux()
 
 	apiMux.HandleFunc("/api/healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -139,8 +139,7 @@ func NewAppHandler(ctx context.Context, cfg *config.Config, pubsubClient *queue.
 		}
 	})
 
-	fs := http.FileServer(http.Dir("web/out"))
-	apiMux.Handle("/", fs)
+	apiMux.Handle("/", http.FileServer(staticFS))
 
 	corsMiddleware := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -159,8 +158,8 @@ func NewAppHandler(ctx context.Context, cfg *config.Config, pubsubClient *queue.
 }
 
 // Start launches the HTTP server and manages its lifecycle.
-func Start(ctx context.Context, cfg *config.Config, pubsubClient *queue.Client, db store.Store, hub *Hub) error {
-	mux := NewAppHandler(ctx, cfg, pubsubClient, db, hub)
+func Start(ctx context.Context, cfg *config.Config, pubsubClient *queue.Client, db store.Store, hub *Hub, staticFS http.FileSystem) error {
+	mux := NewAppHandler(ctx, cfg, pubsubClient, db, hub, staticFS)
 
 	port := cfg.Server.Port
 	if port == "" {

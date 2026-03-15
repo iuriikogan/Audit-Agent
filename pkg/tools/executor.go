@@ -12,6 +12,7 @@ import (
 	asset "cloud.google.com/go/asset/apiv1"
 	"cloud.google.com/go/asset/apiv1/assetpb"
 	"github.com/google/generative-ai-go/genai"
+	"github.com/iuriikogan/multi-agent-cra/pkg/knowledge"
 	"google.golang.org/api/iterator"
 )
 
@@ -51,8 +52,21 @@ func (e *DefaultExecutor) Execute(ctx context.Context, name string, args map[str
 		return fmt.Sprintf("Technical specs for %v: Processor X1, 8GB RAM, Secure Boot enabled.", args["product_id"]), nil
 	case "query_cve_database":
 		return fmt.Sprintf("No CRITICAL vulnerabilities found for %s %s. 2 LOW found in dependencies.", args["component"], args["version"]), nil
-	case "read_cra_regulation_text":
-		return "Article X: Products with digital elements shall be designed, developed and produced such that they ensure an appropriate level of cybersecurity.", nil
+	case "search_cra_knowledge":
+		query, _ := args["query"].(string)
+		if query == "" {
+			return "Error: query argument is required.", nil
+		}
+		chunks, err := knowledge.Search(ctx, e.Client, query, 3)
+		if err != nil {
+			return fmt.Sprintf("Error searching knowledge base: %v", err), nil
+		}
+		var sb strings.Builder
+		sb.WriteString("Relevant CRA Information:\n")
+		for _, c := range chunks {
+			fmt.Fprintf(&sb, "- %s (Relevance: %.2f)\n", c.Text, c.Score)
+		}
+		return sb.String(), nil
 	case "list_gcp_assets":
 		return e.listGCPAssets(ctx, args)
 	case "ingest_file_system":
