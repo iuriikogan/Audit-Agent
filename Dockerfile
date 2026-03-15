@@ -1,14 +1,7 @@
-# Use a multi-stage build for production efficiency
+# Use a 2-stage build for production efficiency
+# This Dockerfile expects web/out to be present in the build context.
 
-# --- Stage 1: Frontend Builder ---
-FROM node:20-alpine AS frontend-builder
-WORKDIR /app/web
-COPY web/package*.json ./
-RUN npm install
-COPY web/ ./
-RUN npm run build
-
-# --- Stage 2: Backend Builder ---
+# --- Stage 1: Backend Builder ---
 FROM golang:1.25 AS backend-builder
 WORKDIR /app
 ENV GOTOOLCHAIN=auto
@@ -23,10 +16,20 @@ COPY . .
 # Build arguments
 ARG TARGET=server
 
+# If building the server, ensure the frontend assets are in the correct place for go:embed
+RUN if [ "$TARGET" = "server" ]; then \
+      mkdir -p cmd/server/out && \
+      if [ -d "web/out" ]; then \
+        cp -r web/out/* cmd/server/out/; \
+      else \
+        echo "Warning: web/out not found. Server will build without embedded assets or fallback to empty." >&2; \
+      fi \
+    fi
+
 # Build the binary
 RUN CGO_ENABLED=0 GOOS=linux go build -o /app/bin/app ./cmd/${TARGET}/main.go
 
-# --- Stage 3: Final Runtime Image ---
+# --- Stage 2: Final Runtime Image ---
 FROM alpine:latest
 WORKDIR /app
 
@@ -35,9 +38,6 @@ RUN apk --no-cache add ca-certificates
 
 # Copy the binary from the backend builder
 COPY --from=backend-builder /app/bin/app ./app
-
-# Copy the static Next.js export
-COPY --from=frontend-builder /app/web/out ./web/out
 
 # Expose port
 EXPOSE 8080

@@ -1,11 +1,17 @@
 # Package cloud_run defines the serverless compute resources for the compliance system.
 
 resource "google_cloud_run_v2_service" "server" {
+  custom_audiences = ["google-cloud-run"]
   name     = var.cloud_run_server_name
   location = var.region
   ingress  = "INGRESS_TRAFFIC_ALL"
 
   template {
+    max_instance_request_concurrency = 1
+    scaling {
+      min_instance_count = 0
+      max_instance_count = 100
+    }
     service_account = google_service_account.server_sa.email
     vpc_access {
       connector = google_vpc_access_connector.connector.id
@@ -30,6 +36,14 @@ resource "google_cloud_run_v2_service" "server" {
         value = "cra_user:${var.db_password}@tcp(${google_sql_database_instance.instance.private_ip_address}:3306)/cra_db?parseTime=true"
       }
       env {
+        name  = "PUBSUB_TOPIC_SCAN_REQUESTS"
+        value = google_pubsub_topic.scan_requests.name
+      }
+      env {
+        name  = "PUBSUB_SUB_SCAN_REQUESTS"
+        value = google_pubsub_subscription.scan_requests_sub.name
+      }
+      env {
         name = "GEMINI_API_KEY"
         value_source {
           secret_key_ref {
@@ -51,11 +65,17 @@ resource "google_cloud_run_v2_service_iam_member" "server_invoker" {
 }
 
 resource "google_cloud_run_v2_service" "worker" {
+  custom_audiences = ["google-cloud-run"]
   name     = var.cloud_run_worker_name
   location = var.region
   ingress  = "INGRESS_TRAFFIC_INTERNAL_ONLY"
 
   template {
+    max_instance_request_concurrency = 1
+    scaling {
+      min_instance_count = 0
+      max_instance_count = 100
+    }
     service_account = google_service_account.worker_sa.email
     vpc_access {
       connector = google_vpc_access_connector.connector.id
@@ -78,6 +98,14 @@ resource "google_cloud_run_v2_service" "worker" {
       env {
         name  = "DATABASE_URL"
         value = "cra_user:${var.db_password}@tcp(${google_sql_database_instance.instance.private_ip_address}:3306)/cra_db?parseTime=true"
+      }
+      env {
+        name  = "PUBSUB_TOPIC_SCAN_REQUESTS"
+        value = google_pubsub_topic.scan_requests.name
+      }
+      env {
+        name  = "PUBSUB_SUB_SCAN_REQUESTS"
+        value = google_pubsub_subscription.scan_requests_sub.name
       }
       env {
         name = "GEMINI_API_KEY"

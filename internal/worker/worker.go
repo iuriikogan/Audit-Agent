@@ -46,7 +46,7 @@ Produce a comprehensive, structured modeling report detailing the security postu
 	validatorAgent := agent.New(genaiClient, cfg.APIKey, "ComplianceValidator", "Validation", cfg.Models.Validator,
 		agent.WithSystemInstruction(`You are a strict and meticulous Compliance Validator focused on the European Cyber Resilience Act (CRA).
 Your responsibility is to rigorously validate the provided CRA model and resource configurations against all relevant regulatory frameworks and security best practices.
-Utilize the regulatory checker and compliance tools to verify configurations.
+Utilize the search_cra_knowledge tool to query specific requirements and articles from the CRA implementation guide.
 Your output must be a detailed compliance report that explicitly highlights severe compliance violations, exposes missing security controls, and provides clear, actionable step-by-step remediation plans.`),
 		agent.WithTools(tools.RegulatoryCheckerTools...),
 		agent.WithTools(tools.ComplianceTools...),
@@ -97,7 +97,7 @@ The output should be a JSON object with the following fields: 'resource_name', '
 	wf.RegisterPushHandler(mux, "/pubsub/reporter", "", reporterAgent, workflow.ProcessReporting)
 
 	slog.Info("Worker routes registered. Listening for push requests...")
-	
+
 	mux.HandleFunc("/pubsub/scan-requests", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -111,8 +111,9 @@ The output should be a JSON object with the following fields: 'resource_name', '
 		}
 
 		var job struct {
-			JobID string `json:"job_id"`
-			Scope string `json:"scope"`
+			JobID      string `json:"job_id"`
+			Scope      string `json:"scope"`
+			Regulation string `json:"regulation"`
 		}
 		if err := json.Unmarshal(req.Message.Data, &job); err != nil {
 			slog.Error("Failed to parse job from push", "error", err)
@@ -123,14 +124,14 @@ The output should be a JSON object with the following fields: 'resource_name', '
 		slog.Info("Processing scan request", "job_id", job.JobID)
 
 		if db != nil {
-			if err := db.CreateScan(r.Context(), job.JobID, job.Scope); err != nil {
+			if err := db.CreateScan(r.Context(), job.JobID, job.Scope, job.Regulation); err != nil {
 				slog.Error("Failed to create scan record", "error", err)
 				http.Error(w, "db error", http.StatusInternalServerError)
 				return
 			}
 		}
 
-		err := runScan(r.Context(), cfg, pubsubClient, aggregatorAgent, job.Scope, job.JobID, db)
+		err := runScan(r.Context(), cfg, pubsubClient, aggregatorAgent, job.Scope, job.JobID, job.Regulation, db)
 
 		status := "completed"
 		if err != nil {
@@ -156,7 +157,7 @@ The output should be a JSON object with the following fields: 'resource_name', '
 }
 
 // runScan executes resource discovery and delegates assessment tasks to agents.
-func runScan(ctx context.Context, cfg *config.Config, pubsubClient *queue.Client, aggregator agent.Agent, scope, jobID string, db store.Store) error {
+func runScan(ctx context.Context, cfg *config.Config, pubsubClient *queue.Client, aggregator agent.Agent, scope, jobID, regulation string, db store.Store) error {
 	discoveryCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 
@@ -166,7 +167,7 @@ func runScan(ctx context.Context, cfg *config.Config, pubsubClient *queue.Client
 	}
 
 	jsonStr := listResp
-	
+
 	type Asset struct {
 		Name      string `json:"name"`
 		AssetType string `json:"asset_type"`
@@ -203,10 +204,12 @@ func runScan(ctx context.Context, cfg *config.Config, pubsubClient *queue.Client
 		}
 	}
 
+	batchSize := 10
 	for i, a := range assets {
 		task := workflow.AgentTask{
-			JobID: jobID,
-			Scope: scope,
+			JobID:      jobID,
+			Scope:      scope,
+			Regulation: regulation,
 			Resource: core.GCPResource{
 				ID: fmt.Sprintf("r%d", i), Name: a.Name, Type: a.AssetType, Region: a.Location, ProjectID: scope,
 			},
@@ -214,6 +217,12 @@ func runScan(ctx context.Context, cfg *config.Config, pubsubClient *queue.Client
 		taskData, _ := json.Marshal(task)
 		if err := pubsubClient.Publish(ctx, cfg.PubSub.TopicAggregator, taskData); err != nil {
 			slog.Error("Failed to publish aggregator task", "error", err)
+		}
+
+		// Rate limit: small pause every batchSize to avoid flooding Pub/Sub and AI endpoints
+		if (i+1)%batchSize == 0 {
+			slog.Info("Throttling task publication", "index", i, "total", len(assets))
+			time.Sleep(500 * time.Millisecond)
 		}
 	}
 	return nil

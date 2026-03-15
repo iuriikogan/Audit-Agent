@@ -1,7 +1,7 @@
 # Package cloud_sql configures the managed database instance for findings storage.
 
 resource "google_sql_database_instance" "instance" {
-  name             = "cra-db-instance"
+  name             = "cra-mysql-instance"
   region           = var.region
   database_version = "MYSQL_8_0"
 
@@ -12,7 +12,24 @@ resource "google_sql_database_instance" "instance" {
     ip_configuration {
       ipv4_enabled    = false # Private IP only for enhanced security
       private_network = google_compute_network.vpc.id
+      require_ssl     = true # Resolves SNYK-CC-GCP-270
     }
+    backup_configuration {
+      enabled = true # Resolves SNYK-CC-GCP-283
+    }
+    database_flags {
+      name  = "local_infile"
+      value = "off" # Resolves SNYK-CC-GCP-300
+    }
+    database_flags {
+      name  = "cloudsql_iam_authentication"
+      value = "on" # Resolves SNYK-CC-GCP-693
+    }
+    database_flags {
+      name  = "skip_show_database"
+      value = "on" # Resolves SNYK-CC-GCP-694
+    }
+
   }
   deletion_protection = false # Set to true for production environments
 }

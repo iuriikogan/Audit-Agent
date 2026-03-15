@@ -14,6 +14,7 @@ import (
 	"github.com/iuriikogan/multi-agent-cra/pkg/config"
 	"github.com/iuriikogan/multi-agent-cra/pkg/queue"
 	"github.com/iuriikogan/multi-agent-cra/pkg/store"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 // Hub manages a set of active SSE client channels and broadcasts messages to them.
@@ -53,8 +54,8 @@ func (h *Hub) Run(ctx context.Context) {
 }
 
 // NewAppHandler initializes the server's HTTP mux with API and static file routes.
-// It takes a context, config, pubsub client, database store, and hub instance.
-func NewAppHandler(ctx context.Context, cfg *config.Config, pubsubClient *queue.Client, db store.Store, hub *Hub) http.Handler {
+// It takes a context, config, pubsub client, database store, hub instance, and static filesystem.
+func NewAppHandler(ctx context.Context, cfg *config.Config, pubsubClient *queue.Client, db store.Store, hub *Hub, staticFS http.FileSystem) http.Handler {
 	apiMux := http.NewServeMux()
 
 	apiMux.HandleFunc("/api/healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -139,15 +140,27 @@ func NewAppHandler(ctx context.Context, cfg *config.Config, pubsubClient *queue.
 		}
 	})
 
-	fs := http.FileServer(http.Dir("web/out"))
-	apiMux.Handle("/", fs)
+	apiMux.Handle("/", http.FileServer(staticFS))
 
-	return apiMux
+	corsMiddleware := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			if r.Method == "OPTIONS" {
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+
+	return otelhttp.NewHandler(corsMiddleware(apiMux), "api-server")
 }
 
 // Start launches the HTTP server and manages its lifecycle.
-func Start(ctx context.Context, cfg *config.Config, pubsubClient *queue.Client, db store.Store, hub *Hub) error {
-	mux := NewAppHandler(ctx, cfg, pubsubClient, db, hub)
+func Start(ctx context.Context, cfg *config.Config, pubsubClient *queue.Client, db store.Store, hub *Hub, staticFS http.FileSystem) error {
+	mux := NewAppHandler(ctx, cfg, pubsubClient, db, hub, staticFS)
 
 	port := cfg.Server.Port
 	if port == "" {
@@ -180,7 +193,8 @@ func Start(ctx context.Context, cfg *config.Config, pubsubClient *queue.Client, 
 // handleScanCreate processes requests to initiate a new compliance scan.
 func handleScanCreate(w http.ResponseWriter, r *http.Request, pubsubClient *queue.Client, cfg *config.Config, db store.Store) {
 	var req struct {
-		Scope string `json:"scope"`
+		Scope      string `json:"scope"`
+		Regulation string `json:"regulation"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
@@ -188,9 +202,17 @@ func handleScanCreate(w http.ResponseWriter, r *http.Request, pubsubClient *queu
 	}
 
 	jobID := uuid.New().String()
-	msg, _ := json.Marshal(map[string]string{"job_id": jobID, "scope": req.Scope})
+	reg := req.Regulation
+	if reg == "" {
+		reg = "CRA" // Default
+	}
+	msg, _ := json.Marshal(map[string]string{
+		"job_id":     jobID,
+		"scope":      req.Scope,
+		"regulation": reg,
+	})
 
-	if err := db.CreateScan(r.Context(), jobID, req.Scope); err != nil {
+	if err := db.CreateScan(r.Context(), jobID, req.Scope, reg); err != nil {
 		slog.Error("Failed to create scan record", "error", err)
 		http.Error(w, "Failed to initialize scan", http.StatusInternalServerError)
 		return

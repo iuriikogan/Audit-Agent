@@ -1,6 +1,6 @@
 # Deployment Instructions
 
-This document provides detailed instructions for deploying the Multi-Agent CRA System to Google Cloud Run using the unified `build.sh` script.
+This document provides detailed instructions for deploying the Multi-Agent Regulatory Compliance System to Google Cloud Run using the unified `build.sh` script.
 
 The system deploys as two simplified Cloud Run services:
 1.  cra-server: Houses the API and the React Frontend (static export).
@@ -36,7 +36,7 @@ Run the application locally for development and testing using Docker Compose.
 
 ### Deployment Options
 
-The Multi-Agent CRA system provides two distinct paths for production deployment on Google Cloud.
+The Multi-Agent compliance system provides two distinct paths for production deployment on Google Cloud.
 
 ---
 
@@ -90,7 +90,7 @@ Use this option if you prefer managing the lifecycle of your infrastructure and 
 
 ### Dashboard Authentication & Access
 
-The CRA Dashboard is private by default and requires IAM-based authentication.
+The Compliance Dashboard is private by default and requires IAM-based authentication.
 
 #### 1. Configure Authorized Users
 Specify who can access the dashboard by setting the `authorized_users` variable in Terraform:

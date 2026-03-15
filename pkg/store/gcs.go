@@ -42,13 +42,14 @@ func findingPath(jobID, resourceName string) string {
 }
 
 // CreateScan initializes a new scan metadata object in GCS.
-func (s *GCSStore) CreateScan(ctx context.Context, jobID, scope string) error {
+func (s *GCSStore) CreateScan(ctx context.Context, jobID, scope, regulation string) error {
 	scan := ScanResult{
-		JobID:     jobID,
-		Scope:     scope,
-		Status:    "running",
-		CreatedAt: time.Now(),
-		Findings:  []Finding{},
+		JobID:      jobID,
+		Scope:      scope,
+		Status:     "running",
+		Regulation: regulation,
+		CreatedAt:  time.Now(),
+		Findings:   []Finding{},
 	}
 	return s.writeJSON(ctx, metadataPath(jobID), scan)
 }
@@ -59,7 +60,7 @@ func (s *GCSStore) UpdateScanStatus(ctx context.Context, jobID, status string) e
 	if err != nil {
 		return err
 	}
-	
+
 	scan.Status = status
 	now := time.Now()
 	if status == "completed" || status == "failed" {
