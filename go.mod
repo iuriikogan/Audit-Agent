@@ -3,7 +3,6 @@ module github.com/iuriikogan/Audit-Agent
 go 1.25.0
 
 require (
-	cloud.google.com/go/ai v0.8.0
 	cloud.google.com/go/asset v1.22.0
 	cloud.google.com/go/pubsub/v2 v2.4.0
 	cloud.google.com/go/storage v1.56.0

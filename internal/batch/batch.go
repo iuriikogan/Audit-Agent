@@ -10,12 +10,12 @@ import (
 	"strings"
 	"time"
 
-	"google.golang.org/genai"
 	"github.com/iuriikogan/Audit-Agent/pkg/agent"
 	"github.com/iuriikogan/Audit-Agent/pkg/config"
 	"github.com/iuriikogan/Audit-Agent/pkg/core"
 	"github.com/iuriikogan/Audit-Agent/pkg/tools"
 	"github.com/iuriikogan/Audit-Agent/pkg/workflow"
+	"google.golang.org/genai"
 )
 
 // Run executes a full assessment scan on a specified resource scope in batch mode.

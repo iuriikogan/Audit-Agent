@@ -11,9 +11,9 @@ import (
 
 	asset "cloud.google.com/go/asset/apiv1"
 	"cloud.google.com/go/asset/apiv1/assetpb"
-	"google.golang.org/genai"
 	"github.com/iuriikogan/Audit-Agent/pkg/knowledge"
 	"google.golang.org/api/iterator"
+	"google.golang.org/genai"
 )
 
 // Executor defines the interface for running tool logic and returning results as strings.
@@ -66,7 +66,7 @@ func (e *DefaultExecutor) Execute(ctx context.Context, name string, args map[str
 			return fmt.Sprintf("Error searching knowledge base: %v", err), nil
 		}
 		var sb strings.Builder
-		sb.WriteString(fmt.Sprintf("Relevant %s Information:\n", reg))
+		fmt.Fprintf(&sb, "Relevant %s Information:\n", reg)
 		for _, c := range chunks {
 			fmt.Fprintf(&sb, "- %s (Relevance: %.2f)\n", c.Text, c.Score)
 		}

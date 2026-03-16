@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"google.golang.org/genai"
 	"github.com/iuriikogan/Audit-Agent/pkg/agent"
 	"github.com/iuriikogan/Audit-Agent/pkg/config"
 	"github.com/iuriikogan/Audit-Agent/pkg/core"
@@ -18,6 +17,7 @@ import (
 	"github.com/iuriikogan/Audit-Agent/pkg/store"
 	"github.com/iuriikogan/Audit-Agent/pkg/tools"
 	"github.com/iuriikogan/Audit-Agent/pkg/workflow"
+	"google.golang.org/genai"
 )
 
 // RegisterRoutes configures HTTP and Pub/Sub handlers for worker agents.

@@ -6,8 +6,8 @@ import (
 	"log"
 	"os"
 
-	"google.golang.org/genai"
 	"github.com/iuriikogan/Audit-Agent/pkg/knowledge"
+	"google.golang.org/genai"
 )
 
 func main() {

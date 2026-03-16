@@ -67,7 +67,6 @@ func TestDefaultExecutor_Execute(t *testing.T) {
 			contains: "Error searching knowledge base: genai client is nil",
 		},
 
-
 		{
 			name:     "ingest_file_system",
 			toolName: "ingest_file_system",
