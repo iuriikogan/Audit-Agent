@@ -175,8 +175,8 @@ for topic in scan-requests aggregator-topic modeler-topic validator-topic review
   fi
 done
 
-# Fetch dynamic values for Cloud Build substitutions if needed
-DB_IP="10.50.0.5"
+# Fetch dynamic values for Cloud Build substitutions
+DB_IP=$(gcloud sql instances describe compliance-mysql-instance --format='value(ipAddresses[0].ipAddress)' --project=$PROJECT_ID)
 
 # Submit Cloud Build using Dedicated Service Account
 echo "Submitting Cloud Build..."
