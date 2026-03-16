@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { Doughnut } from 'react-chartjs-2';
 import { 
@@ -139,11 +139,23 @@ export default function Dashboard() {
   const isNonCompliant = (s: string) => ['false', 'non-compliant', 'failed', 'rejected', 'non-conformant'].includes(s.toLowerCase());
 
   const findings = scanResult?.findings || [];
-  const compliantCount = findings.filter(f => isCompliant(f.status)).length;
-  const nonCompliantCount = findings.filter(f => isNonCompliant(f.status)).length;
-  const totalCount = findings.length;
+
+  const { compliantCount, nonCompliantCount, totalCount } = useMemo(() => {
+
+    const fArr = scanResult?.findings || [];
+    let comp = 0, nonComp = 0;
+    fArr.forEach(f => {
+      if (isCompliant(f.status)) comp++;
+      else if (isNonCompliant(f.status)) nonComp++;
+    });
+    return {
+      compliantCount: comp,
+      nonCompliantCount: nonComp,
+      totalCount: fArr.length
+    };
+  }, [scanResult]);
   
-  const chartData = {
+  const chartData = useMemo(() => ({
     labels: ['Conformant', 'Non-Conformant'],
     datasets: [{
       data: [compliantCount, nonCompliantCount],
@@ -151,7 +163,7 @@ export default function Dashboard() {
       borderWidth: 0,
       hoverOffset: 4,
     }],
-  };
+  }), [compliantCount, nonCompliantCount]);
 
   return (
     <Box>

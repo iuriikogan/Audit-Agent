@@ -147,6 +147,8 @@ To tear down the deployed resources:
     Run the build script with the destroy flag to bring down all resources:
     ```bash
     ./build.sh --destroy
+    # or
+    ./build.sh -d
     ```
 2.  Local Rollback:
     Stop the services using:

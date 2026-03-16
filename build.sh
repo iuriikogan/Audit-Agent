@@ -6,6 +6,93 @@ PROJECT_ID=$(gcloud config get-value project)
 REGION="europe-west1"
 REPO_NAME="multi-agent-compliance"
 
+# Parse arguments
+DESTROY=false
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        -d|--destroy) DESTROY=true ;;
+        *) echo "Unknown parameter passed: $1"; exit 1 ;;
+    esac
+    shift
+done
+
+if [ "$DESTROY" = true ]; then
+  echo "Triggering Destruction of Resources for Project ID: $PROJECT_ID in Region: $REGION"
+
+  # Cloud Armor
+  echo "Deleting Cloud Armor Policies..."
+  gcloud compute backend-services update compliance-backend --global --security-policy="" --project=$PROJECT_ID 2>/dev/null || true
+  gcloud compute security-policies delete compliance-security-policy --quiet --project=$PROJECT_ID 2>/dev/null || true
+  gcloud compute security-policies delete agent-armor-policy --quiet --project=$PROJECT_ID 2>/dev/null || true
+
+  # Load Balancer & Network
+  echo "Deleting Forwarding Rule..."
+  gcloud compute forwarding-rules delete compliance-frontend-rule --global --quiet --project=$PROJECT_ID 2>/dev/null || true
+  
+  echo "Deleting Target HTTP Proxy..."
+  gcloud compute target-http-proxies delete compliance-http-proxy --quiet --project=$PROJECT_ID 2>/dev/null || true
+
+  echo "Deleting URL Map..."
+  gcloud compute url-maps delete compliance-url-map --quiet --project=$PROJECT_ID 2>/dev/null || true
+
+  echo "Deleting Backend Service..."
+  gcloud compute backend-services delete compliance-backend --global --quiet --project=$PROJECT_ID 2>/dev/null || true
+
+  echo "Deleting Network Endpoint Group..."
+  gcloud compute network-endpoint-groups delete compliance-server-neg --region=$REGION --quiet --project=$PROJECT_ID 2>/dev/null || true
+
+  echo "Deleting Global IP..."
+  gcloud compute addresses delete compliance-dashboard-ip --global --quiet --project=$PROJECT_ID 2>/dev/null || true
+
+  # Pub/Sub
+  echo "Deleting Pub/Sub Subscription..."
+  gcloud pubsub subscriptions delete scan-requests-sub --quiet --project=$PROJECT_ID 2>/dev/null || true
+
+  echo "Deleting Pub/Sub Topics..."
+  for topic in scan-requests aggregator-topic modeler-topic validator-topic reviewer-topic tagger-topic reporter-topic monitoring-topic; do
+    gcloud pubsub topics delete $topic --quiet --project=$PROJECT_ID 2>/dev/null || true
+  done
+
+  # Cloud Run
+  echo "Deleting Cloud Run Services..."
+  gcloud run services delete compliance-server --region=$REGION --quiet --project=$PROJECT_ID 2>/dev/null || true
+  gcloud run services delete compliance-worker --region=$REGION --quiet --project=$PROJECT_ID 2>/dev/null || true
+
+  # Cloud SQL
+  echo "Deleting Cloud SQL Instance (this may take a while)..."
+  gcloud sql instances delete compliance-mysql-instance --quiet --project=$PROJECT_ID 2>/dev/null || true
+
+  # Networking / VPC
+  echo "Deleting Private IP Allocation and Peering..."
+  gcloud services vpc-peerings delete --network=compliance-vpc --service=servicenetworking.googleapis.com --project=$PROJECT_ID --quiet 2>/dev/null || true
+  gcloud compute addresses delete private-ip-for-sql --global --quiet --project=$PROJECT_ID 2>/dev/null || true
+
+  echo "Deleting VPC Access Connector..."
+  gcloud compute networks vpc-access connectors delete compliance-connector --region=$REGION --quiet --project=$PROJECT_ID 2>/dev/null || true
+
+  echo "Deleting VPC Subnet..."
+  gcloud compute networks subnets delete compliance-subnet --region=$REGION --quiet --project=$PROJECT_ID 2>/dev/null || true
+
+  echo "Deleting VPC Network..."
+  gcloud compute networks delete compliance-vpc --quiet --project=$PROJECT_ID 2>/dev/null || true
+
+  # Secrets & IAM
+  echo "Deleting Secret Manager Secret..."
+  gcloud secrets delete GEMINI_API_KEY --quiet --project=$PROJECT_ID 2>/dev/null || true
+
+  echo "Deleting Service Accounts..."
+  for sa in compliance-server-sa compliance-worker-sa compliance-build-sa sa-classifier sa-auditor sa-vuln sa-reporter; do
+    gcloud iam service-accounts delete $sa@$PROJECT_ID.iam.gserviceaccount.com --quiet --project=$PROJECT_ID 2>/dev/null || true
+  done
+
+  # Artifact Registry
+  echo "Deleting Artifact Registry Repository..."
+  gcloud artifacts repositories delete $REPO_NAME --location=$REGION --quiet --project=$PROJECT_ID 2>/dev/null || true
+  
+  echo "Destruction complete."
+  exit 0
+fi
+
 echo "Triggering Option A: Cloud Build (Automated Deployment)"
 echo "Using Project ID: $PROJECT_ID"
 echo "Region: $REGION"
@@ -120,7 +207,7 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
 
 echo "Ensuring Secret Manager secret exists..."
 if ! gcloud secrets describe GEMINI_API_KEY --project=$PROJECT_ID &>/dev/null; then
-  gcloud secrets create GEMINI_API_KEY --replication-policy=\"automatic\" --project=$PROJECT_ID
+  gcloud secrets create GEMINI_API_KEY --replication-policy=automatic --project=$PROJECT_ID
 fi
 
 if ! gcloud secrets versions describe latest --secret=GEMINI_API_KEY --project=$PROJECT_ID &>/dev/null; then
@@ -175,12 +262,12 @@ for topic in scan-requests aggregator-topic modeler-topic validator-topic review
   fi
 done
 
-# Fetch dynamic values for Cloud Build substitutions if needed
-DB_IP="10.50.0.5"
+# Fetch dynamic values for Cloud Build substitutions
+DB_IP=$(gcloud sql instances describe compliance-mysql-instance --format='value(ipAddresses[0].ipAddress)' --project=$PROJECT_ID)
 
 # Submit Cloud Build using Dedicated Service Account
 echo "Submitting Cloud Build..."
-gcloud builds submit --project=$PROJECT_ID \
+gcloud beta builds submit --project=$PROJECT_ID \
   --service-account="projects/${PROJECT_ID}/serviceAccounts/compliance-build-sa@${PROJECT_ID}.iam.gserviceaccount.com" \
   --substitutions=_DB_IP=$DB_IP
 
