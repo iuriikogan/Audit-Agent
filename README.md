@@ -67,4 +67,12 @@ Before deploying the application locally or in production, ensure the following 
 
 #### [Deployment Options](https://github.com/iuriikogan/multi-agent-cra/DEPLOY.md)
 
+#### Teardown / Destruction
+To tear down all the Google Cloud resources provisioned by the `build.sh` deployment script, you can run the build script with the destroy flag:
+```bash
+./build.sh --destroy
+# or
+./build.sh -d
+```
+
 #### [Architecture](https://github.com/iuriikogan/multi-agent-cra/blob/main/ARCHITECTURE.md)
