@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -121,31 +121,56 @@ export default function CRADashboard() {
     return { org, folder, proj };
   };
 
-  const orgs = ['All', ...Array.from(new Set(findings.map(f => extractHierarchy(f.resource_name).org).filter(o => o !== 'Unknown')))];
-  const folders = ['All', ...Array.from(new Set(findings.map(f => extractHierarchy(f.resource_name).folder).filter(f => f !== 'Unknown')))];
-  const projects = ['All', ...Array.from(new Set(findings.map(f => extractHierarchy(f.resource_name).proj).filter(p => p !== 'Unknown')))];
+  const { orgs, folders, projects } = useMemo(() => {
+    if (!Array.isArray(findings)) return { orgs: ['All'], folders: ['All'], projects: ['All'] };
+
+    const oSet = new Set<string>();
+    const fSet = new Set<string>();
+    const pSet = new Set<string>();
+
+    findings.forEach(f => {
+      const { org, folder, proj } = extractHierarchy(f.resource_name);
+      if (org !== 'Unknown') oSet.add(org);
+      if (folder !== 'Unknown') fSet.add(folder);
+      if (proj !== 'Unknown') pSet.add(proj);
+    });
+
+    return {
+      orgs: ['All', ...Array.from(oSet)],
+      folders: ['All', ...Array.from(fSet)],
+      projects: ['All', ...Array.from(pSet)]
+    };
+  }, [findings]);
+
   const regulations = ['All', 'CRA', 'DORA'];
 
-  const filteredFindings = findings.filter(f => {
-    const { org, folder, proj } = extractHierarchy(f.resource_name);
-    if (orgFilter !== 'All' && org !== orgFilter) return false;
-    if (folderFilter !== 'All' && folder !== folderFilter) return false;
-    if (projectFilter !== 'All' && proj !== projectFilter) return false;
-    if (regulationFilter !== 'All' && f.regulation !== regulationFilter) return false;
-    return true;
-  });
+  const filteredFindings = useMemo(() => {
+    if (!Array.isArray(findings)) return [];
+    return findings.filter(f => {
+      const { org, folder, proj } = extractHierarchy(f.resource_name);
+      if (orgFilter !== 'All' && org !== orgFilter) return false;
+      if (folderFilter !== 'All' && folder !== folderFilter) return false;
+      if (projectFilter !== 'All' && proj !== projectFilter) return false;
+      if (regulationFilter !== 'All' && f.regulation !== regulationFilter) return false;
+      return true;
+    });
+  }, [findings, orgFilter, folderFilter, projectFilter, regulationFilter]);
 
-  const compliantCount = filteredFindings.filter(f => {
-    const s = f.status.toLowerCase();
-    return s === 'compliant' || s === 'true' || s === 'approved' || s === 'conformant';
-  }).length;
-  const nonCompliantCount = filteredFindings.filter(f => {
-    const s = f.status.toLowerCase();
-    return s === 'non-compliant' || s === 'false' || s === 'failed' || s === 'rejected' || s === 'non-conformant';
-  }).length;
-  const otherCount = filteredFindings.length - compliantCount - nonCompliantCount;
+  const { compliantCount, nonCompliantCount, otherCount } = useMemo(() => {
+    let comp = 0, nonComp = 0;
+    filteredFindings.forEach(f => {
+      const s = f.status.toLowerCase();
+      if (['compliant', 'true', 'approved', 'conformant'].includes(s)) comp++;
+      else if (['non-compliant', 'false', 'failed', 'rejected', 'non-conformant'].includes(s)) nonComp++;
+    });
+    return {
+      compliantCount: comp,
+      nonCompliantCount: nonComp,
+      otherCount: filteredFindings.length - comp - nonComp
+    };
+  }, [filteredFindings]);
 
-  const chartData = {
+  const chartData = useMemo(() => ({
     labels: ['Conformant', 'Non-Conformant', 'Other'],
     datasets: [
       {
@@ -155,7 +180,7 @@ export default function CRADashboard() {
         borderWidth: 1,
       },
     ],
-  };
+  }), [compliantCount, nonCompliantCount, otherCount]);
 
   // handleShare copies the current filtered dashboard URL to the clipboard.
   const handleShare = () => {

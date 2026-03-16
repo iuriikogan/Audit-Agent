@@ -180,7 +180,7 @@ DB_IP=$(gcloud sql instances describe compliance-mysql-instance --format='value(
 
 # Submit Cloud Build using Dedicated Service Account
 echo "Submitting Cloud Build..."
-gcloud builds submit --project=$PROJECT_ID \
+gcloud beta builds submit --project=$PROJECT_ID \
   --service-account="projects/${PROJECT_ID}/serviceAccounts/compliance-build-sa@${PROJECT_ID}.iam.gserviceaccount.com" \
   --substitutions=_DB_IP=$DB_IP
 
