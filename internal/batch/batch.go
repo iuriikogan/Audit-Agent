@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/generative-ai-go/genai"
+	"google.golang.org/genai"
 	"github.com/iuriikogan/Audit-Agent/pkg/agent"
 	"github.com/iuriikogan/Audit-Agent/pkg/config"
 	"github.com/iuriikogan/Audit-Agent/pkg/core"
@@ -98,6 +98,11 @@ func Run(ctx context.Context, client *genai.Client, apiKey, scope string, models
 	if len(assets) == 0 {
 		slog.Error("No assets found")
 		panic("no assets found")
+	}
+
+	if len(assets) > 10 {
+		slog.Info("Limiting assets to 10 for demo purposes", "original_count", len(assets))
+		assets = assets[:10]
 	}
 
 	var resources []core.GCPResource
