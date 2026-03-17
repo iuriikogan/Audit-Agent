@@ -33,26 +33,16 @@ jobs:
     - name: Build
       run: npm run build
   
-    - name: Setup Snyk + snyk-filter # For information about the required commands https://docs.snyk.io/scm-ide-and-ci-cd-integrations/snyk-ci-cd-integrations
+    - name: Setup Snyk # For information about the required commands https://docs.snyk.io/scm-ide-and-ci-cd-integrations/snyk-ci-cd-integrations
       run: |
-          npm install snyk snyk-filter -g
+          npm install snyk --global
           snyk auth $SNYK_TOKEN --auth-type=token
       
     - name: Snyk Open Source
       run: |
-        snyk test --json | snyk-filter 
-        ## you can edit the .snyk-filter/snyk.yaml file in order to apply additional filters
+        snyk test --all-projects
       continue-on-error: true
-        # snyk test --json --print-deps | snyk-delta --setPassIfNoBaseline false ## you can use snyk-delta to diff between previous snapshots for the same project
-
-       # Use git submodules to centrally manage a .snyk policy file
-    - name: Checkout .snyk file from private repo 
-      uses: actions/checkout@v4
-      with:
-        repository: iuriikogan-snyk/snyk-policy-master
-        path: 'snyk'
-        token: ${{ secrets.SNYK_REPO_TOKEN }}
-      
+     
     - name: Snyk Code
       run: |
         ## Hack to pull a centralized snyk policy to ignore directories e.g. /tests /mock
