@@ -9,20 +9,6 @@ A scalable, event-driven multi-agent system designed to assess Google Cloud infr
 *   Real-time Dashboard: A Next.js frontend embedded in the Go binary featuring live Server-Sent Events (SSE) log streaming, interactive compliance charts, and framework-specific filtering.
 *   Event-Driven: Decoupled architecture using Google Cloud Pub/Sub for resilient, multi-stage agent pipelines.
   
-## High-Level System Architecture and Data Flow
-
-##### Detailed Architecture can be found in [ARCHITECTURE.md](https://github.com/iuriikogan/Audit-Agent/blob/main/ARCHITECTURE.md)
-
-The system uses a strictly decoupled producer-consumer model:
-
-1.  Frontend (UI): Users interact with the embedded React dashboard to initiate scans (selecting between CRA or DORA) or view historical compliance findings.
-2.  API Server (ROLE=server): Receives HTTP scan requests (with framework context), publishes them to Pub/Sub, and serves historical data from the database. It also maintains long-lived SSE connections to broadcast internal monitoring events to the browser.
-3.  Message Broker (Pub/Sub): Manages discrete topics for every stage of the agent pipeline (scan-requests -> aggregator -> modeler -> validator -> reviewer -> tagger).
-4.  Worker Fleet (ROLE=worker): Stateless background processes that consume Pub/Sub messages, execute Gemini agent logic, interact with GCP APIs (like Cloud Asset Inventory), and write findings to the database.
-5.  State Store: 
-    *   Cloud SQL (Production): Persistent storage of scan metadata and compliance findings.
-    *   SQLite (Local): In-memory ephemeral storage for rapid testing.
-
 ### Security Controls
 *   Least Privilege: Workers operate using dedicated Google Service Accounts with minimal permissions required for Asset Inventory and Pub/Sub.
 *   No Hardcoded Secrets: API keys and Database URLs are injected securely at runtime via environment variables.
@@ -63,6 +49,6 @@ Before deploying the application locally or in production, ensure the following 
 *   A valid Gemini API Key.
 *   (Production) Google Cloud services enabled: run.googleapis.com, cloudbuild.googleapis.com, artifactregistry.googleapis.com, secretmanager.googleapis.com, sqladmin.googleapis.com, cloudtrace.googleapis.com.
 
-#### [Deployment Options](https://github.com/iuriikogan/multi-agent-cra/DEPLOY.md)
+### [   Deployment Options](https://github.com/iuriikogan/multi-agent-cra/DEPLOY.md)
 
-#### [Architecture](https://github.com/iuriikogan/multi-agent-cra/blob/main/ARCHITECTURE.md)
+### [   Architecture](https://github.com/iuriikogan/multi-agent-cra/blob/main/ARCHITECTURE.md)
