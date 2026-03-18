@@ -49,6 +49,6 @@ Before deploying the application locally or in production, ensure the following 
 *   A valid Gemini API Key.
 *   (Production) Google Cloud services enabled: run.googleapis.com, cloudbuild.googleapis.com, artifactregistry.googleapis.com, secretmanager.googleapis.com, sqladmin.googleapis.com, cloudtrace.googleapis.com.
 
-### [   Deployment Options](https://github.com/iuriikogan/Audit-Agent/DEPLOY.md)
+###     [Deployment Instructions](https://github.com/iuriikogan/Audit-Agent/blob/4a9019444fd98bd3ab19e56cfd8c69c80bbe32a2/DEPLOY.md)
 
 ### [   Architecture](https://github.com/iuriikogan/Audit-Agent/blob/main/ARCHITECTURE.md)
