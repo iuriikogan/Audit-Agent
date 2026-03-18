@@ -1,10 +1,4 @@
-// Package core provides domain.go implementation.
-//
-// Rationale: This module is designed to encapsulate domain-specific logic,
-// ensuring strict separation of concerns within the multi-agent architecture.
-// Terminology: CRA (Cyber Resilience Act), DORA (Digital Operational Resilience Act),
-// GCP (Google Cloud Platform), Agent (Autonomous AI actor).
-// Measurability: Ensures code maintainability and testability by isolating discrete workflow steps.
+// Package core provides domain.go defines core entities for the audit agent.
 package core
 
 // GCPResource represents a GCP resource to be assessed by the agents.

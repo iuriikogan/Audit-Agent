@@ -28,8 +28,8 @@ type SQLiteStore struct {
 //   - ctx: The context for the initialization operations.
 //   - dsn: The path to the SQLite file (or ":memory:").
 func NewSQLite(ctx context.Context, dsn string) (Store, error) {
-	if dsn == "" {
-		dsn = ":memory:"
+	if dsn == "" || dsn == ":memory:" {
+		dsn = "file:audit.db?cache=shared"
 	}
 
 	// Enforce foreign key constraints by default.

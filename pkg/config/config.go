@@ -73,7 +73,7 @@ func Load() *Config {
 		GCSBucketName: getEnv("GCS_BUCKET_NAME", "compliance-data-"+projectID),
 		DatabaseURL:   os.Getenv("DATABASE_URL"),
 		DatabaseType:  os.Getenv("DATABASE_TYPE"),
-		StoreType:     getEnv("STORE_TYPE", "gcs"),
+		StoreType:     getEnv("STORE_TYPE", "sqlite"),
 		PubSub: PubSubConfig{
 			TopicScanRequests: getEnv("PUBSUB_TOPIC_SCAN_REQUESTS", "scan-requests"),
 			SubScanRequests:   getEnv("PUBSUB_SUB_SCAN_REQUESTS", "scan-requests-sub"),

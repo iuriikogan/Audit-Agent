@@ -48,6 +48,24 @@ The system enforces a strict separation of concerns via a producer-consumer mode
 └── terraform/       # IaC definitions for GCP deployment
 ```
 
+## Knowledge Base & Embeddings
+
+The system uses vector embeddings to provide specialized regulatory knowledge to the agents. These are stored as JSON files in `pkg/knowledge/`.
+
+### Adding New Regulation Embeddings
+
+To add a new regulation (e.g., "NIST"), follow these steps:
+
+1.  **Prepare the Text**: Create a plain text file (e.g., `nist_text.txt`) containing the regulation's clauses.
+2.  **Generate Embeddings**: Use the unified embedding script:
+    ```bash
+    export GEMINI_API_KEY="your-api-key"
+    export EMBEDDING_INPUT_FILE="nist_text.txt"
+    export EMBEDDING_OUTPUT_FILE="pkg/knowledge/nist_kb.json"
+    go run scripts/embeddings/main.go
+    ```
+3.  **Update Domain Logic**: If necessary, update the Validator agent to reference the new knowledge base in `pkg/knowledge/knowledge.go`.
+
 ## Prerequisites
 
 Ensure the following prerequisites are met:
