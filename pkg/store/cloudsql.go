@@ -1,8 +1,4 @@
 // Package store provides a Cloud SQL (MySQL) implementation of the Store interface for production.
-//
-// Rationale: Cloud SQL provides a fully-managed, high-availability relational backend
-// suitable for production-scale compliance data. It supports JSON types natively,
-// ensuring efficient storage of complex finding metadata.
 package store
 
 import (
