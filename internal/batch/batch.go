@@ -42,7 +42,13 @@ func Run(ctx context.Context, client *genai.Client, apiKey, scope string, models
 
 	reviewerAgent := agent.New(client, apiKey, "Reviewer", "Approval", models.Reviewer,
 		agent.WithSystemInstruction(`You are a Compliance Reviewer.
-			Your task is to review the compliance report and provide an approval status and final report summary.`),
+			Your task is to review the compliance report and provide an approval status and final report summary.
+			You MUST output your response exactly as a JSON object with the following structure:
+			{
+				"status": "compliant" | "not-compliant" | "compliant pending action",
+				"chapter": "Applicable Regulation Chapter (e.g., ICT Risk Management, ICT-related incident management, etc.)",
+				"details": "A concise summary with short, actionable steps for any non-compliant findings."
+			}`),
 		agent.WithTools(tools.ComplianceTools...),
 	)
 
@@ -99,7 +105,8 @@ func Run(ctx context.Context, client *genai.Client, apiKey, scope string, models
 		slog.Error("No assets found")
 		panic("no assets found")
 	}
-
+	//
+	// Set a limit of 10 assets for demo purposes
 	if len(assets) > 10 {
 		slog.Info("Limiting assets to 10 for demo purposes", "original_count", len(assets))
 		assets = assets[:10]

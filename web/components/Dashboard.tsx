@@ -46,10 +46,12 @@ import {
   Security,
   Insights,
 } from '@mui/icons-material';
-import { Chart as ChartJS, ArcElement, Tooltip as ChartTooltip, Legend } from 'chart.js';
-import { Doughnut } from 'react-chartjs-2';
+import { Chart as ChartJS, ArcElement, Tooltip as ChartTooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from 'chart.js';
+import { Doughnut, Bar } from 'react-chartjs-2';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
-ChartJS.register(ArcElement, ChartTooltip, Legend);
+ChartJS.register(ArcElement, CategoryScale, LinearScale, BarElement, Title, ChartTooltip, Legend);
 
 // --- Type Definitions ---
 interface Finding {
@@ -88,8 +90,14 @@ const extractHierarchy = (resourceName: string) => {
   return { org, folder, proj };
 };
 
+const extractChapter = (details: string | undefined) => {
+  if (!details) return 'Other';
+  const match = details.match(/^Chapter:\s*(.*?)(?:\n|$)/);
+  return match ? match[1].trim() : 'Other';
+};
+
 const isCompliant = (status: string) => status.toLowerCase() === 'compliant' || status.toLowerCase() === 'pass';
-const isNonCompliant = (status: string) => status.toLowerCase() === 'non_compliant' || status.toLowerCase() === 'non-compliant' || status.toLowerCase() === 'fail';
+const isNonCompliant = (status: string) => status.toLowerCase().includes('not-compliant') || status.toLowerCase() === 'non_compliant' || status.toLowerCase() === 'non-compliant' || status.toLowerCase() === 'fail';
 
 // --- Main Dashboard Component ---
 export default function Dashboard() {
@@ -208,20 +216,25 @@ function ComplianceOverview() {
   }
 
   return (
-    <Grid container spacing={3}>
-      <Grid item xs={12}>
-        <FilterControls findings={findings} filters={filters} setFilters={setFilters} />
+    <Box id="dashboard-content" sx={{ p: 1 }}>
+      <Grid container spacing={3}>
+        <Grid item xs={12}>
+          <FilterControls findings={findings} filters={filters} setFilters={setFilters} />
+        </Grid>
+        <Grid item xs={12}>
+          <ActionToolbar findings={filteredFindings} />
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <ComplianceChart findings={filteredFindings} />
+        </Grid>
+        <Grid item xs={12} md={8}>
+          <ChapterChart findings={filteredFindings} />
+        </Grid>
+        <Grid item xs={12}>
+          <FindingsTable findings={filteredFindings} />
+        </Grid>
       </Grid>
-      <Grid item xs={12} md={4}>
-        <ComplianceChart findings={filteredFindings} />
-      </Grid>
-      <Grid item xs={12} md={8}>
-        <ActionToolbar findings={filteredFindings} />
-      </Grid>
-      <Grid item xs={12}>
-        <FindingsTable findings={filteredFindings} />
-      </Grid>
-    </Grid>
+    </Box>
   );
 }
 
@@ -515,6 +528,8 @@ function ComplianceChart({ findings }: any) {
 
 
 function ActionToolbar({ findings }: { findings: any[] }) {
+  const [isExporting, setIsExporting] = useState(false);
+
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href);
     alert("URL copied to clipboard!");
@@ -536,10 +551,89 @@ function ActionToolbar({ findings }: { findings: any[] }) {
     document.body.removeChild(link);
   };
 
+  const handleExportPDF = async () => {
+    const input = document.getElementById('dashboard-content');
+    if (!input) return;
+    
+    setIsExporting(true);
+    try {
+      const canvas = await html2canvas(input, { scale: 1.5 });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      pdf.text('DORA Compliance Self-Assessment Report', 14, 15);
+      pdf.addImage(imgData, 'PNG', 0, 20, pdfWidth, pdfHeight);
+      pdf.save('dora-compliance-report.pdf');
+    } catch (err) {
+      console.error('Failed to export PDF', err);
+      alert('Failed to generate PDF export.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
-    <Paper sx={{ p: 2, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 2 }}>
+    <Paper sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 2 }}>
       <Button startIcon={<Share />} onClick={handleShare} variant="outlined">Share</Button>
-      <Button startIcon={<Download />} onClick={handleExportCSV} variant="contained" color="primary">Export CSV</Button>
+      <Button startIcon={<Download />} onClick={handleExportCSV} variant="outlined" color="primary">Export CSV</Button>
+      <Button startIcon={isExporting ? <CircularProgress size={20} /> : <Download />} onClick={handleExportPDF} variant="contained" color="primary" disabled={isExporting}>
+        Export PDF
+      </Button>
+    </Paper>
+  );
+}
+
+function ChapterChart({ findings }: { findings: any[] }) {
+  const theme = useTheme();
+
+  const chapterStats = useMemo(() => {
+    const stats: Record<string, { total: number, compliant: number }> = {};
+    findings.forEach((f: any) => {
+      const chapter = extractChapter(f.details);
+      if (!stats[chapter]) stats[chapter] = { total: 0, compliant: 0 };
+      stats[chapter].total++;
+      if (isCompliant(f.status)) stats[chapter].compliant++;
+    });
+    return stats;
+  }, [findings]);
+
+  const labels = Object.keys(chapterStats);
+  const data = labels.map(label => {
+    const s = chapterStats[label];
+    return s.total > 0 ? (s.compliant / s.total) * 100 : 0;
+  });
+
+  const chartData = {
+    labels,
+    datasets: [
+      {
+        label: '% Compliant',
+        data,
+        backgroundColor: theme.palette.primary.main,
+      }
+    ]
+  };
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      y: { min: 0, max: 100, title: { display: true, text: 'Compliance %' } }
+    },
+    plugins: {
+      legend: { display: false },
+      title: { display: true, text: 'Compliance Average By Chapter' }
+    }
+  };
+
+  return (
+    <Paper sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <Typography variant="h6" gutterBottom>Chapter Breakdown</Typography>
+      <Box sx={{ flexGrow: 1, minHeight: 250 }}>
+        <Bar data={chartData} options={chartOptions} />
+      </Box>
     </Paper>
   );
 }
@@ -668,10 +762,22 @@ function ScanResults({ scanResult, loading, jobId }: any) {
   }
 
   return (
-    <Paper sx={{ p: 2, height: '100%' }}>
-      <Typography variant="h6" gutterBottom>Scan Results {jobId && `(Job ID: ${jobId})`}</Typography>
-      <Typography variant="subtitle2" color="textSecondary" gutterBottom>Status: {scanResult.status}</Typography>
-      <FindingsTable findings={scanResult.findings || []} />
-    </Paper>
+    <Box id="dashboard-content" sx={{ p: 1, height: '100%' }}>
+      <Paper sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Box>
+            <Typography variant="h6">Scan Results {jobId && `(Job ID: ${jobId})`}</Typography>
+            <Typography variant="subtitle2" color="textSecondary">Status: {scanResult.status}</Typography>
+          </Box>
+          <ActionToolbar findings={scanResult.findings || []} />
+        </Box>
+        {scanResult.findings && scanResult.findings.length > 0 && (
+          <Box sx={{ mb: 2 }}>
+            <ChapterChart findings={scanResult.findings} />
+          </Box>
+        )}
+        <FindingsTable findings={scanResult.findings || []} />
+      </Paper>
+    </Box>
   );
 }

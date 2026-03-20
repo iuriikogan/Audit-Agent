@@ -68,8 +68,6 @@ By injecting `logging.googleapis.com/trace` and `logging.googleapis.com/spanId` 
 
 ## Agent Pipeline & Data Flow
 
-The compliance process is a multi-stage, event-driven pipeline where autonomous AI agents perform specific roles sequentially. Information is aggregated into a final `AssessmentResult` struct (including Compliance Model, Status, Regulation, and specific Approval findings).
-
 ```mermaid
 sequenceDiagram
     participant UI as Compliance Dashboard
@@ -120,6 +118,68 @@ sequenceDiagram
     Note over Agg,Rep: All agents continuously publish telemetry to 'monitoring-events'
     PS-->>API: Consume(monitoring-events)
     API-->>UI: Server-Sent Events (SSE) Live Update
+```
+
+## GCP Infrastructure Detail
+
+### GCP Network (VPC, Subnets, Firewall Rules)
+The system resides in a custom VPC (`compliance-vpc`) with serverless egress managed via a VPC Access Connector. External access is strictly controlled by a Global Application Load Balancer and Cloud Armor.
+
+```mermaid
+graph TD
+    User((User)) -->|HTTPS| LB[Global External Load Balancer]
+    LB -->|Protected by| Armor[Cloud Armor: compliance-security-policy]
+    Armor --> ServerNEG[Serverless NEG: compliance-server-neg]
+    ServerNEG --> RunServer[Cloud Run: Server]
+    
+    subgraph VPC [Compliance VPC: compliance-vpc]
+        direction TB
+        Connector[VPC Access Connector: 10.8.0.0/28]
+        Subnet[compliance-subnet: 10.0.0.0/24]
+        PrivateIP[Private IP Range: 10.10.0.0/16]
+        Peering[VPC Peering: Service Networking]
+    end
+
+    RunServer -->|Egress ALL| Connector
+    RunWorker[Cloud Run: Worker] -->|Egress ALL| Connector
+    
+    Connector --> Subnet
+    Subnet --> Peering
+    Peering -.->|Private IP Connection| CloudSQL[(Cloud SQL Instance)]
+
+    style VPC fill:#f8f9fa,stroke:#343a40,stroke-width:2px
+```
+
+### Cloud Run Service
+Both the API/UI Server and the Background Worker leverage Cloud Run for autoscaling and containerized execution, with the Worker restricted to internal-only ingress.
+
+```mermaid
+graph TD
+    subgraph Service [Cloud Run Configuration]
+        direction TB
+        Ingress[Ingress: Server=All, Worker=Internal Only]
+        Scaling[Scaling: 0-100 Instances]
+        Auth[Identity: Dedicated Service Accounts]
+        Network[Network: VPC Connector + Egress ALL]
+        Runtime[Runtime: Embedded Next.js + Go Binary]
+        Secrets[Secrets: Gemini API Key via Secret Manager]
+    end
+```
+
+### Cloud SQL Instance
+The production database is a managed MySQL 8.0 instance configured for high security and private network isolation.
+
+```mermaid
+graph TD
+    subgraph Instance [Cloud SQL: compliance-mysql-instance]
+        direction TB
+        Tier[Tier: db-f1-micro]
+        Version[Version: MySQL 8.0]
+        Network[Networking: Private IP Only, SSL Required]
+        Security[Security: IAM Authentication, Deleted Protection]
+        Storage[Data: findings, scans, compliance_db]
+        Backup[Availability: Automatic Backups]
+    end
 ```
 
 ## Security Controls

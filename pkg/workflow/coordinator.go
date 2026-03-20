@@ -7,8 +7,10 @@ package workflow
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -145,13 +147,37 @@ func (c *Coordinator) analyzeResource(ctx context.Context, r core.GCPResource) c
 
 		// Stage 4: Assessment Reviewer (Verification)
 		slog.Debug("workflow: step 4 (Reviewer)", "resource", r.Name)
-		approval, err := c.reviewer.Chat(stepCtx, fmt.Sprintf("Review compliance findings for resource: %s", complianceReport))
+		approval, err := c.reviewer.Chat(stepCtx, fmt.Sprintf("Review compliance findings for resource: %s. Output strictly as the requested JSON format.", complianceReport))
 		if err != nil {
 			slog.Error("workflow: review failed", "resource", r.Name, "error", err)
 			res.Error = fmt.Errorf("review failed: %w", err)
 			return res
 		}
-		res.ApprovalStatus = approval
+
+		// Parse the structured review response
+		type reviewResponse struct {
+			Status  string `json:"status"`
+			Chapter string `json:"chapter"`
+			Details string `json:"details"`
+		}
+		var parsed reviewResponse
+		
+		// Clean up markdown markers if present
+		cleanApproval := approval
+		if start := strings.Index(cleanApproval, "{"); start != -1 {
+			if end := strings.LastIndex(cleanApproval, "}"); end > start {
+				cleanApproval = cleanApproval[start : end+1]
+			}
+		}
+		
+		if err := json.Unmarshal([]byte(cleanApproval), &parsed); err == nil && parsed.Status != "" {
+			res.ApprovalStatus = parsed.Status
+			// Overwrite compliance report so details contain actionable steps and chapter
+			res.ComplianceReport = fmt.Sprintf("Chapter: %s\n\n%s", parsed.Chapter, parsed.Details)
+		} else {
+			slog.Warn("workflow: failed to parse structured review output, falling back to raw", "error", err)
+			res.ApprovalStatus = approval
+		}
 
 		// Stage 5: Resource Tagger (Governance)
 		slog.Debug("workflow: step 5 (Tagger)", "resource", r.Name)

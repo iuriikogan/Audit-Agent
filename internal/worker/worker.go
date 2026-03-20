@@ -57,7 +57,13 @@ Query the regulatory knowledge base and validate resource security postures.`),
 	// 4. Reviewer Agent: Peer reviews findings.
 	reviewerAgent := agent.New(genaiClient, cfg.APIKey, "Reviewer", "Approval", cfg.Models.Reviewer,
 		agent.WithSystemInstruction(`You are a Compliance Reviewer. 
-Issue a final verdict (APPROVED/REJECTED) based on the validation report.`),
+			Your task is to review the compliance report and provide an approval status and final report summary.
+			You MUST output your response exactly as a JSON object with the following structure:
+			{
+				"status": "compliant" | "not-compliant" | "compliant pending action",
+				"chapter": "Applicable Regulation Chapter (e.g., ICT Risk Management, ICT-related incident management, etc.)",
+				"details": "A concise summary with short, actionable steps for any non-compliant findings."
+			}`),
 	)
 
 	// 5. Tagger Agent: Automated governance enforcement.
