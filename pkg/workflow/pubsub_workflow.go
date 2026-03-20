@@ -201,9 +201,33 @@ func ProcessValidation(ctx context.Context, a agent.Agent, task *AgentTask) (str
 }
 
 func ProcessReview(ctx context.Context, a agent.Agent, task *AgentTask) (string, string, error) {
-	prompt := fmt.Sprintf("Peer-review the compliance findings: %s", task.Result.ComplianceReport)
+	prompt := fmt.Sprintf("Peer-review the compliance findings: %s. Output strictly as the requested JSON format.", task.Result.ComplianceReport)
 	approval, err := a.Chat(ctx, prompt)
-	task.Result.ApprovalStatus = approval
+	
+	if err == nil {
+		type reviewResponse struct {
+			Status  string `json:"status"`
+			Chapter string `json:"chapter"`
+			Details string `json:"details"`
+		}
+		var parsed reviewResponse
+		
+		cleanApproval := approval
+		if start := strings.Index(cleanApproval, "{"); start != -1 {
+			if end := strings.LastIndex(cleanApproval, "}"); end > start {
+				cleanApproval = cleanApproval[start : end+1]
+			}
+		}
+		
+		if unmarshalErr := json.Unmarshal([]byte(cleanApproval), &parsed); unmarshalErr == nil && parsed.Status != "" {
+			task.Result.ApprovalStatus = parsed.Status
+			task.Result.ComplianceReport = fmt.Sprintf("Chapter: %s\n\n%s", parsed.Chapter, parsed.Details)
+		} else {
+			slog.Warn("workflow: failed to parse structured review output, falling back to raw", "error", unmarshalErr)
+			task.Result.ApprovalStatus = approval
+		}
+	}
+	
 	return prompt, approval, err
 }
 
